@@ -926,6 +926,45 @@ class Veritabani:
 
         return sonuc if sonuc else 0
 
+    def bugunun_ozetini_getir(self, sefer_yonu=MALATYA_BASKIL):
+        """Bugünün araç, yaya, hasılat ve son plaka bilgisini döndürür."""
+
+        bugun = datetime.now().strftime("%d.%m.%Y")
+        sefer_yonu = sefer_yonunu_dogrula(sefer_yonu)
+        self.imlec.execute(
+            """
+            SELECT toplam_arac, toplam_yaya, toplam_hasilat
+            FROM gunluk_ozetler
+            WHERE tarih = ? AND sefer_yonu = ?
+            """,
+            (bugun, sefer_yonu)
+        )
+        gunluk_satir = self.imlec.fetchone() or (0, 0, 0)
+
+        self.imlec.execute(
+            """
+            SELECT plaka
+            FROM gecisler
+            WHERE tarih = ? AND sefer_yonu = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (bugun, sefer_yonu)
+        )
+        plaka_satiri = self.imlec.fetchone()
+        son_plaka = (
+            str(plaka_satiri[0]).strip()
+            if plaka_satiri and plaka_satiri[0]
+            else "Kayıt yok"
+        )
+
+        return {
+            "toplam_arac": int(gunluk_satir[0]),
+            "toplam_yaya": int(gunluk_satir[1]),
+            "toplam_hasilat": float(gunluk_satir[2]),
+            "son_plaka": son_plaka,
+        }
+
     # ==========================
     # TOPLAM ARAÇ
     # ==========================

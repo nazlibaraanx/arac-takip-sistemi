@@ -58,6 +58,30 @@ class VeritabaniVeRaporTestleri(unittest.TestCase):
         self.assertEqual(kayit[3:], ("34ABC123", "Otomobil", 240.0))
         self.assertEqual(self.vt.plaka_ozetlerini_ara("ABC"), [kayit])
 
+    def test_bugunun_ozeti_arac_yaya_hasilat_ve_son_plakayi_dondurur(self):
+        self.vt.gecis_kaydet(
+            takip_id=42,
+            plaka="34ABC123",
+            arac_turu="Otomobil",
+            genislik_px=180,
+            ucret=240
+        )
+        self.vt.gecis_kaydet(
+            takip_id=43,
+            plaka="44XYZ789",
+            arac_turu="Kamyon",
+            genislik_px=260,
+            ucret=800
+        )
+        self.vt.yaya_kaydet(takip_id=7)
+
+        ozet = self.vt.bugunun_ozetini_getir()
+
+        self.assertEqual(ozet["toplam_arac"], 2)
+        self.assertEqual(ozet["toplam_yaya"], 1)
+        self.assertEqual(ozet["toplam_hasilat"], 1040)
+        self.assertEqual(ozet["son_plaka"], "44XYZ789")
+
     def test_gecisler_tarih_araligina_gore_filtrelenir(self):
         self.vt.gecis_kaydet(1, "34ABC123", "Otomobil", 180, 240)
         self.vt.gecis_kaydet(2, "44DEF456", "Kamyon", 250, 800)

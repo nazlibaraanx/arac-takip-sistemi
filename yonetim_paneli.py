@@ -404,48 +404,34 @@ class YonetimPaneli:
 
         self.kamera_ayari_arayuzunu_olustur()
 
+        tk.Label(
+            self.kayitlar_sekmesi,
+            text="BUGÜNÜN ÖZETİ",
+            font=("Segoe UI Semibold", 11),
+            bg=self.ARKA_PLAN,
+            fg=self.BASLIK_RENGI,
+        ).pack(anchor="w", padx=25, pady=(5, 4))
+
         bilgi_frame = tk.Frame(self.kayitlar_sekmesi, bg=self.ARKA_PLAN)
-        bilgi_frame.pack(pady=5)
+        bilgi_frame.pack(fill="x", padx=20, pady=(0, 5))
+        for sutun in range(5):
+            bilgi_frame.grid_columnconfigure(sutun, weight=1)
 
-        self.lbl_toplam = tk.Label(
-            bilgi_frame,
-            text="Toplam Araç: 0",
-            font=("Segoe UI Semibold", 12),
-            bg=self.ARKA_PLAN,
-            fg=self.BASLIK_RENGI,
-            width=20
+        self.lbl_toplam = self.ozet_karti_olustur(
+            bilgi_frame, 0, "Bugünkü Araç", "0"
         )
-        self.lbl_toplam.pack(side="left", padx=10)
-
-        self.lbl_gelir = tk.Label(
-            bilgi_frame,
-            text="Bugünkü Gelir: 0 TL",
-            font=("Segoe UI Semibold", 12),
-            bg=self.ARKA_PLAN,
-            fg=self.BASLIK_RENGI,
-            width=20
+        self.lbl_yaya = self.ozet_karti_olustur(
+            bilgi_frame, 1, "Bugünkü Yaya", "0"
         )
-        self.lbl_gelir.pack(side="left", padx=10)
-
-        self.lbl_toplam_gelir = tk.Label(
-            bilgi_frame,
-            text="Toplam Gelir: 0 TL",
-            font=("Segoe UI Semibold", 12),
-            bg=self.ARKA_PLAN,
-            fg=self.BASLIK_RENGI,
-            width=20
+        self.lbl_gelir = self.ozet_karti_olustur(
+            bilgi_frame, 2, "Bugünkü Hasılat", "0,00 TL"
         )
-        self.lbl_toplam_gelir.pack(side="left", padx=10)
-
-        self.lbl_yaya = tk.Label(
-            bilgi_frame,
-            text="Yaya Yolcu: 0",
-            font=("Segoe UI Semibold", 12),
-            bg=self.ARKA_PLAN,
-            fg=self.BASLIK_RENGI,
-            width=20
+        self.lbl_son_plaka = self.ozet_karti_olustur(
+            bilgi_frame, 3, "Son Algılanan Plaka", "Kayıt yok"
         )
-        self.lbl_yaya.pack(side="left", padx=10)
+        self.lbl_aktif_yon = self.ozet_karti_olustur(
+            bilgi_frame, 4, "Aktif Sefer Yönü", "-"
+        )
 
         arama_frame = tk.Frame(self.kayitlar_sekmesi, bg=self.ARKA_PLAN)
         arama_frame.pack(pady=15)
@@ -1951,26 +1937,16 @@ class YonetimPaneli:
             )
             self.tabloyu_doldur(kayitlar)
 
-            toplam_arac = self.vt.toplam_arac_sayisi(
+            bugun = self.vt.bugunun_ozetini_getir(
                 self.aktif_sefer_yonu
             )
-            toplam_yaya = self.vt.toplam_yaya_sayisi(
-                self.aktif_sefer_yonu
-            )
-            bugunku_gelir = self.vt.bugunku_toplam_gelir(
-                self.aktif_sefer_yonu
-            )
-            self.lbl_toplam.config(text=f"Toplam Araç: {toplam_arac}")
-            self.lbl_yaya.config(text=f"Yaya Yolcu: {toplam_yaya}")
+            self.lbl_toplam.config(text=str(bugun["toplam_arac"]))
+            self.lbl_yaya.config(text=str(bugun["toplam_yaya"]))
             self.lbl_gelir.config(
-                text=f"Bugünkü Gelir: {bugunku_gelir:.2f} TL"
+                text=f'{bugun["toplam_hasilat"]:.2f} TL'
             )
-            self.lbl_toplam_gelir.config(
-                text=(
-                    "Toplam Gelir: "
-                    f"{self.vt.toplam_gelir(self.aktif_sefer_yonu):.2f} TL"
-                )
-            )
+            self.lbl_son_plaka.config(text=bugun["son_plaka"])
+            self.lbl_aktif_yon.config(text=self.aktif_sefer_yonu)
             self.plaka_entry.delete(0, tk.END)
         except Exception as hata:
             messagebox.showerror(
