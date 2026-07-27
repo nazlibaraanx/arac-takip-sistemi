@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Çalışma sırasında üretilen veya büyük yerel dosyalar
+feribot.db
+Feribot_Rapor_*.xlsx
+raporlar/*.xlsx
+ciktilar/
+loglar/
+*.log
+*.lock
+videolar/
+modeller/*.pt
+egitim/veri_seti/ham_kareler/
+egitim/veri_seti/on_etiketler/
+egitim/veri_seti/onayli_etiketler/
+egitim/veri_seti/images/
+egitim/veri_seti/labels/
+egitim/ciktilar/
+
+# Editör geçici dosyaları
+.vscode/
+.idea/
+tempCodeRunnerFile.py

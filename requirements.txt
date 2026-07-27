@@ -1,0 +1,7 @@
+easyocr>=1.7.2,<2
+numpy>=2.0,<3
+opencv-python>=4.10,<6
+openpyxl>=3.1,<4
+Pillow>=11,<13
+reportlab>=4,<6
+ultralytics>=8.3,<9

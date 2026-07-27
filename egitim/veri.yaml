@@ -1,0 +1,13 @@
+path: veri_seti
+train: images/train
+val: images/val
+
+names:
+  0: Motosiklet
+  1: Çapa
+  2: Otomobil
+  3: Toplu Taşıma
+  4: Traktör Römorklu
+  5: Kamyonet
+  6: Kamyon
+  7: Uzun Araç
