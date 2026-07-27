@@ -5,6 +5,9 @@ venv/
 
 # Çalışma sırasında üretilen veya büyük yerel dosyalar
 feribot.db
+kamera_ayari.json
+sefer_yonu.json
+yukleme_durumu.json
 Feribot_Rapor_*.xlsx
 raporlar/*.xlsx
 ciktilar/
