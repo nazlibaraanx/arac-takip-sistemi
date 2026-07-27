@@ -5,6 +5,9 @@ takip eder. Feribot girişindeki iki kontrol çizgisini doğru yönde geçen nes
 yalnızca bir kez sayar; araç plakasını okumayı dener, tarifeyi hesaplar ve
 sonuçları SQLite veritabanına kalıcı olarak kaydeder.
 
+Projenin 13–27 Temmuz 2026 arasındaki gelişimi için
+[Geliştirme Günlüğü](GELISTIRME_GUNLUGU.md) belgesine bakabilirsiniz.
+
 ## Sistem özellikleri
 
 - Araç ve yaya yolcu için ayrı geçiş ölçümü
