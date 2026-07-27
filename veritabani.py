@@ -3,7 +3,11 @@ import uuid
 from datetime import datetime
 
 from ayarlar import VERITABANI_YOLU
-from sefer_yonu import MALATYA_BASKIL, sefer_yonunu_dogrula
+from sefer_yonu import (
+    MALATYA_BASKIL,
+    SEFER_YONLERI,
+    sefer_yonunu_dogrula,
+)
 
 
 class Veritabani:
@@ -774,6 +778,21 @@ class Veritabani:
             "gunluk_ozetler": gunluk_ozetler,
             "arac_turleri": self.imlec.fetchall(),
         }
+
+    def aylik_yon_karsilastirmasi_getir(self, yil, ay):
+        """İki yönün aylık toplamlarını ve günlük serilerini döndürür."""
+
+        sonuc = {}
+        for sefer_yonu in SEFER_YONLERI:
+            ozet = self.aylik_grafik_ozeti_getir(yil, ay, sefer_yonu)
+            gunlukler = ozet["gunluk_ozetler"]
+            sonuc[sefer_yonu] = {
+                "toplam_arac": sum(int(satir[1]) for satir in gunlukler),
+                "toplam_yaya": sum(int(satir[2]) for satir in gunlukler),
+                "toplam_hasilat": sum(float(satir[3]) for satir in gunlukler),
+                "gunluk_ozetler": gunlukler,
+            }
+        return sonuc
 
     def sefer_grafik_ozeti_getir(self, sefer_id):
         """Tek bir yükleme seferinin rapor ve grafik özetini döndürür."""

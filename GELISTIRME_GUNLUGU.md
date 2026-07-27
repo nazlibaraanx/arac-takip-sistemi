@@ -101,7 +101,12 @@ arasındaki gelişimini anlatır.
   - bugünkü hasılat,
   - son algılanan plaka,
   - aktif sefer yönü.
-- Tüm otomatik testler çalıştırıldı ve 62 test başarıyla geçti.
+- Aylık genel rapor ekranı iki yönü doğrudan karşılaştıracak şekilde yenilendi.
+- Malatya–Baskil ve Baskil–Malatya için araç, yaya ve hasılat değerleri yan
+  yana gösterildi.
+- Günlük aylık grafik, iki yönü mavi ve turuncu çift sütunlarla gösterecek
+  şekilde geliştirildi.
+- Tüm otomatik testler çalıştırıldı ve 63 test başarıyla geçti.
 
 ## Bundan sonraki kayıt biçimi
 

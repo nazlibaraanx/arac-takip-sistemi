@@ -153,6 +153,38 @@ class VeritabaniVeRaporTestleri(unittest.TestCase):
             self.vt.rapor_aylarini_getir()
         )
 
+    def test_aylik_yon_karsilastirmasi_iki_yonu_ayri_dondurur(self):
+        self.vt.gecis_kaydet(
+            1, "44AAA111", "Otomobil", 180, 240,
+            sefer_yonu=MALATYA_BASKIL
+        )
+        self.vt.gecis_kaydet(
+            2, "44BBB222", "Kamyon", 260, 800,
+            sefer_yonu=BASKIL_MALATYA
+        )
+        self.vt.yaya_kaydet(3, sefer_yonu=BASKIL_MALATYA)
+        simdi = datetime.now()
+
+        karsilastirma = self.vt.aylik_yon_karsilastirmasi_getir(
+            simdi.year, simdi.month
+        )
+
+        self.assertEqual(
+            karsilastirma[MALATYA_BASKIL]["toplam_arac"], 1
+        )
+        self.assertEqual(
+            karsilastirma[MALATYA_BASKIL]["toplam_hasilat"], 240
+        )
+        self.assertEqual(
+            karsilastirma[BASKIL_MALATYA]["toplam_arac"], 1
+        )
+        self.assertEqual(
+            karsilastirma[BASKIL_MALATYA]["toplam_yaya"], 1
+        )
+        self.assertEqual(
+            karsilastirma[BASKIL_MALATYA]["toplam_hasilat"], 800
+        )
+
     def test_grafik_ozeti_secili_tarih_araligina_gore_filtrelenir(self):
         self.vt.gecis_kaydet(1, "A", "Otomobil", 180, 240)
         bugun = datetime.now()

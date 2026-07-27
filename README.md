@@ -18,6 +18,7 @@ Projenin 13–27 Temmuz 2026 arasındaki gelişimi için
 - `Malatya - Baskil` ve `Baskil - Malatya` için bağımsız kayıtlar
 - Geçiş kayıtları, aylık grafik, tarih aralığı ve günlük detay ekranları
 - Yönetim panelinde canlı günün özeti, son plaka ve aktif sefer yönü
+- Aylık genel raporda iki yönün yan yana özeti ve çift serili günlük grafiği
 - Aylık Excel raporu
 - Araç/yaya seçimine uygun PDF grafik raporları
 - Manuel tarih aralığı seçimi

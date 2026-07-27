@@ -266,6 +266,8 @@ class YonetimPaneli:
         self.grafik_gunluk_verileri = []
         self.grafik_tur_verileri = []
         self.grafik_aralik_gunluk_verileri = []
+        self.grafik_yon_karsilastirmasi = {}
+        self.grafik_kapsam_turu = "genel"
         self.grafik_modu = "arac"
         self.grafik_secim_butonlari = {}
         self.grafik_kapsam_haritasi = {}
@@ -912,7 +914,46 @@ class YonetimPaneli:
             "Kayıt yok"
         )
 
+        self.yon_karsilastirma_frame = tk.Frame(
+            self.grafik_sekmesi, bg=self.ARKA_PLAN
+        )
+        self.yon_karsilastirma_frame.pack(fill="x", padx=24, pady=(0, 5))
+        for sutun in range(2):
+            self.yon_karsilastirma_frame.grid_columnconfigure(sutun, weight=1)
+
+        self.yon_karsilastirma_etiketleri = {}
+        yon_renkleri = ("#2F75B5", "#ED7D31")
+        for sutun, (yon, renk) in enumerate(zip(SEFER_YONLERI, yon_renkleri)):
+            kart = tk.Frame(
+                self.yon_karsilastirma_frame,
+                bg=self.KART_RENGI,
+                highlightthickness=1,
+                highlightbackground=renk,
+                padx=14,
+                pady=7,
+            )
+            kart.grid(
+                row=0, column=sutun, sticky="ew", padx=5
+            )
+            tk.Label(
+                kart,
+                text=yon.replace(" - ", " → "),
+                font=("Segoe UI Semibold", 10),
+                bg=self.KART_RENGI,
+                fg=renk,
+            ).pack(anchor="w")
+            deger = tk.Label(
+                kart,
+                text="0 araç  ·  0 yaya  ·  0,00 TL",
+                font=("Segoe UI", 10),
+                bg=self.KART_RENGI,
+                fg=self.METIN_RENGI,
+            )
+            deger.pack(anchor="w", pady=(4, 0))
+            self.yon_karsilastirma_etiketleri[yon] = deger
+
         grafik_secimi = tk.Frame(self.grafik_sekmesi, bg=self.ARKA_PLAN)
+        self.grafik_secim_frame = grafik_secimi
         grafik_secimi.pack(fill="x", padx=24, pady=(7, 0))
         tk.Label(
             grafik_secimi,
@@ -1191,6 +1232,28 @@ class YonetimPaneli:
             yogun_metin = "Kayıt yok"
 
         self.grafik_lbl_yogun_gun.config(text=yogun_metin)
+        self.yon_karsilastirmasini_guncelle()
+
+    def yon_karsilastirmasini_guncelle(self):
+        if self.grafik_kapsam_turu != "genel":
+            self.yon_karsilastirma_frame.pack_forget()
+            return
+
+        self.yon_karsilastirma_frame.pack(
+            fill="x", padx=24, pady=(0, 5), before=self.grafik_secim_frame
+        )
+        for yon in SEFER_YONLERI:
+            ozet = self.grafik_yon_karsilastirmasi.get(yon, {})
+            arac = int(ozet.get("toplam_arac", 0))
+            yaya = int(ozet.get("toplam_yaya", 0))
+            hasilat = float(ozet.get("toplam_hasilat", 0))
+            hasilat_metni = (
+                f"{hasilat:,.2f}".replace(",", "X")
+                .replace(".", ",").replace("X", ".")
+            )
+            self.yon_karsilastirma_etiketleri[yon].config(
+                text=f"{arac} araç  ·  {yaya} yaya  ·  {hasilat_metni} TL"
+            )
 
     def ozet_karti_olustur(self, parent, sutun, baslik, deger):
         kart = tk.Frame(
@@ -2004,6 +2067,9 @@ class YonetimPaneli:
                 ozet = self.vt.aylik_genel_grafik_ozeti_getir(
                     yil, ay
                 )
+                self.grafik_yon_karsilastirmasi = (
+                    self.vt.aylik_yon_karsilastirmasi_getir(yil, ay)
+                )
                 self.grafik_rapor_etiketi = "Aylık Genel · İki Yön"
                 self.grafik_rapor_yil = yil
                 self.grafik_rapor_ay = ay
@@ -2012,12 +2078,14 @@ class YonetimPaneli:
                 ozet = self.vt.aylik_grafik_ozeti_getir(
                     yil, ay, deger
                 )
+                self.grafik_yon_karsilastirmasi = {}
                 self.grafik_rapor_etiketi = f"Aylık · {deger}"
                 self.grafik_rapor_yil = yil
                 self.grafik_rapor_ay = ay
                 self.grafik_donem_secimi.config(state="readonly")
             else:
                 ozet = self.vt.sefer_grafik_ozeti_getir(deger)
+                self.grafik_yon_karsilastirmasi = {}
                 self.grafik_rapor_etiketi = secili
                 self.grafik_donem_secimi.config(state="disabled")
                 if ozet["gunluk_ozetler"]:
@@ -2031,6 +2099,7 @@ class YonetimPaneli:
                     self.grafik_rapor_ay = bugun.month
             self.grafik_gunluk_verileri = ozet["gunluk_ozetler"]
             self.grafik_tur_verileri = ozet["arac_turleri"]
+            self.grafik_kapsam_turu = kapsam
             on_ek = "Sefer" if kapsam == "sefer" else "Aylık"
             self.grafik_lbl_toplam_arac.baslik_label.config(
                 text=f"{on_ek} Toplam Araç"
@@ -2117,6 +2186,10 @@ class YonetimPaneli:
         seri_rengi = "#ED7D31" if yaya_modu else "#2F75B5"
         seri_adi = "Yaya Yolcu" if yaya_modu else "Araç"
         veri_indeksi = 2 if yaya_modu else 1
+        karsilastirma_modu = (
+            self.grafik_kapsam_turu == "genel"
+            and bool(self.grafik_yon_karsilastirmasi)
+        )
 
         canvas.create_text(
             22,
@@ -2140,10 +2213,25 @@ class YonetimPaneli:
         sol, sag, ust, alt = 55, 22, 62, 45
         alan_genisligi = genislik - sol - sag
         alan_yuksekligi = yukseklik - ust - alt
-        sayilar = [
-            int(satir[veri_indeksi])
-            for satir in self.grafik_gunluk_verileri
-        ]
+        yon_serileri = {}
+        if karsilastirma_modu:
+            for yon in SEFER_YONLERI:
+                yon_serileri[yon] = {
+                    satir[0]: int(satir[veri_indeksi])
+                    for satir in self.grafik_yon_karsilastirmasi[yon][
+                        "gunluk_ozetler"
+                    ]
+                }
+            sayilar = [
+                sayi
+                for seri in yon_serileri.values()
+                for sayi in seri.values()
+            ] or [0]
+        else:
+            sayilar = [
+                int(satir[veri_indeksi])
+                for satir in self.grafik_gunluk_verileri
+            ]
         en_yuksek = max(max(sayilar), 1)
         eksen_ust = max(5, ((en_yuksek + 4) // 5) * 5)
 
@@ -2162,43 +2250,88 @@ class YonetimPaneli:
 
         adet = len(self.grafik_gunluk_verileri)
         dilim = alan_genisligi / adet
-        cubuk_genisligi = max(5, min(28, dilim * 0.55))
+        cubuk_genisligi = (
+            max(4, min(18, dilim * 0.3))
+            if karsilastirma_modu
+            else max(5, min(28, dilim * 0.55))
+        )
         etiket_adimi = max(1, (adet + 9) // 10)
 
-        canvas.create_rectangle(
-            sol, 43, sol + 12, 53, fill=seri_rengi, outline=""
-        )
-        canvas.create_text(
-            sol + 18,
-            48,
-            text=seri_adi,
-            anchor="w",
-            font=("Segoe UI", 8)
-        )
+        if karsilastirma_modu:
+            for indeks, (yon, renk) in enumerate(
+                zip(SEFER_YONLERI, ("#2F75B5", "#ED7D31"))
+            ):
+                x = sol + indeks * 165
+                canvas.create_rectangle(
+                    x, 43, x + 12, 53, fill=renk, outline=""
+                )
+                canvas.create_text(
+                    x + 18, 48,
+                    text=yon.replace(" - ", " → "),
+                    anchor="w",
+                    font=("Segoe UI", 8)
+                )
+        else:
+            canvas.create_rectangle(
+                sol, 43, sol + 12, 53, fill=seri_rengi, outline=""
+            )
+            canvas.create_text(
+                sol + 18,
+                48,
+                text=seri_adi,
+                anchor="w",
+                font=("Segoe UI", 8)
+            )
 
         for indeks, satir in enumerate(
             self.grafik_gunluk_verileri
         ):
             tarih = satir[0]
-            sayi = int(satir[veri_indeksi])
             merkez_x = sol + dilim * indeks + dilim / 2
             y2 = ust + alan_yuksekligi
-            cubuk_yuksekligi = alan_yuksekligi * sayi / eksen_ust
-            canvas.create_rectangle(
-                merkez_x - cubuk_genisligi / 2,
-                y2 - cubuk_yuksekligi,
-                merkez_x + cubuk_genisligi / 2,
-                y2,
-                fill=seri_rengi,
-                outline=""
-            )
-            canvas.create_text(
-                merkez_x,
-                max(ust + 9, y2 - cubuk_yuksekligi - 10),
-                text=str(sayi),
-                font=("Segoe UI Semibold", 8),
-                fill="#4B5F6D"
-            )
+            if karsilastirma_modu:
+                for yon_indeksi, (yon, renk) in enumerate(
+                    zip(SEFER_YONLERI, ("#2F75B5", "#ED7D31"))
+                ):
+                    sayi = yon_serileri[yon].get(tarih, 0)
+                    cubuk_yuksekligi = alan_yuksekligi * sayi / eksen_ust
+                    cubuk_x = merkez_x + (
+                        yon_indeksi - 0.5
+                    ) * cubuk_genisligi
+                    canvas.create_rectangle(
+                        cubuk_x - cubuk_genisligi / 2,
+                        y2 - cubuk_yuksekligi,
+                        cubuk_x + cubuk_genisligi / 2,
+                        y2,
+                        fill=renk,
+                        outline=""
+                    )
+                    if sayi:
+                        canvas.create_text(
+                            cubuk_x,
+                            max(ust + 9, y2 - cubuk_yuksekligi - 9),
+                            text=str(sayi),
+                            font=("Segoe UI Semibold", 7),
+                            fill="#4B5F6D"
+                        )
+            else:
+                sayi = int(satir[veri_indeksi])
+                cubuk_yuksekligi = alan_yuksekligi * sayi / eksen_ust
+                canvas.create_rectangle(
+                    merkez_x - cubuk_genisligi / 2,
+                    y2 - cubuk_yuksekligi,
+                    merkez_x + cubuk_genisligi / 2,
+                    y2,
+                    fill=seri_rengi,
+                    outline=""
+                )
+                canvas.create_text(
+                    merkez_x,
+                    max(ust + 9, y2 - cubuk_yuksekligi - 10),
+                    text=str(sayi),
+                    font=("Segoe UI Semibold", 8),
+                    fill="#4B5F6D"
+                )
 
             if indeks % etiket_adimi == 0 or indeks == adet - 1:
                 canvas.create_text(
