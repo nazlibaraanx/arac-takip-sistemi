@@ -6,7 +6,7 @@ from datetime import date
 
 import cv2
 
-from ayarlar import PROJE_KLASORU
+from ayarlar import PLAKA_SAKLAMA_GUNU, PROJE_KLASORU
 from arac_tespit import AracTespit
 from excel_aktar import ExcelAktar
 from gecis_kontrol import GecisKontrol
@@ -14,6 +14,7 @@ from kamera_kaynagi import kamera_ayarini_yukle, kamera_kaynagi_aciklamasi
 from otomatik_yedek import OtomatikYedek
 from plaka_okuma import PlakaOkuma
 from sefer_yonu import SEFER_YONLERI, sefer_yonunu_oku
+from sistem_sagligi import SistemSagligi
 from tekil_nesne_hafizasi import TekilNesneHafizasi
 from tek_ornek import TekOrnekKilidi
 from ucret_hesapla import UcretHesapla
@@ -177,6 +178,8 @@ def gecisi_kaydet(
 
         takip_id = arac.get("id")
         arac_turu = arac.get("sinif", "Bilinmiyor")
+        model_arac_turu = arac.get("model_sinifi", arac_turu)
+        model_guveni = float(arac.get("model_guveni", arac.get("guven", 0)))
         genislik_px = max(0, x2 - x1)
 
         sonuc = plaka_okuyucu.plaka_oku(
@@ -231,6 +234,10 @@ def gecisi_kaydet(
         print("ARAÇ FERİBOTA GİRDİ")
         print("ID      :", takip_id)
         print("SINIF   :", arac_turu)
+        print(
+            "MODEL   :",
+            f"{model_arac_turu} (%{model_guveni * 100:.1f})"
+        )
         print("PLAKA   :", plaka)
         print("GÜVEN   :", round(plaka_guveni, 2))
         print("GENİŞLİK:", f"{genislik_px} px")
@@ -284,6 +291,16 @@ def ana_program():
         video_kaynagi = kamera_ayari["deger"]
         veritabani = Veritabani()
         print("Geçmiş geçiş kayıtları korunarak yeni oturum başlatıldı.")
+        maskelenen = veritabani.eski_plakalari_maskele(
+            PLAKA_SAKLAMA_GUNU
+        )
+        if maskelenen:
+            veritabani.denetim_kaydi_ekle(
+                "sistem",
+                "Saklama süresi dolan plakalar maskelendi",
+                f"{maskelenen} kayıt",
+            )
+            print(f"{maskelenen} eski plaka gizlilik amacıyla maskelendi.")
         try:
             yedek_yolu = OtomatikYedek.olustur(
                 kaynak_yolu=veritabani.veritabani_yolu,
@@ -303,6 +320,9 @@ def ana_program():
         plaka_okuyucu = PlakaOkuma()
         ucret_sistemi = UcretHesapla(veritabani)
         video_kontrolleri = VideoKontrolleri()
+        sistem_sagligi = SistemSagligi(PROJE_KLASORU)
+        son_saglik_uyarisi = None
+        son_disk_kontrolu = 0.0
 
         # ==========================
         # VİDEO
@@ -358,8 +378,18 @@ def ana_program():
             basarili, kare = kamera.read()
 
             if not basarili:
-                print("Video bitti.")
+                print("UYARI: Kamera görüntüsü alınamıyor veya video bitti.")
                 break
+
+            saglik_uyarisi = sistem_sagligi.kareyi_kontrol_et(kare)
+            if time.time() - son_disk_kontrolu >= 30:
+                saglik_uyarisi = (
+                    sistem_sagligi.diski_kontrol_et() or saglik_uyarisi
+                )
+                son_disk_kontrolu = time.time()
+            if saglik_uyarisi and saglik_uyarisi != son_saglik_uyarisi:
+                print("SİSTEM UYARISI:", saglik_uyarisi)
+            son_saglik_uyarisi = saglik_uyarisi
 
             kare_sayaci += 1
             yeni_yukleme_bilgisi = {

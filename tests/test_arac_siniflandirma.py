@@ -3,6 +3,7 @@ from collections import defaultdict
 import unittest
 
 from arac_siniflandirma import (
+    SinifKararHafizasi,
     genis_toplu_tasima_govdesi_mi,
     kararli_sinifi_guncelle,
     otomobil_boyutunda_mi,
@@ -12,6 +13,40 @@ from arac_siniflandirma import (
 
 
 class AracSiniflandirmaTestleri(unittest.TestCase):
+
+    def test_tek_karelik_geometri_sinifi_degistirmez(self):
+        hafiza = SinifKararHafizasi()
+        sinif, _guven = hafiza.guncelle(
+            10,
+            "Otomobil",
+            "Toplu Taşıma",
+            0.82,
+            geometrik_kanit=True,
+        )
+        self.assertEqual(sinif, "Otomobil")
+
+    def test_surekli_geometri_kaniti_sinifi_duzeltir(self):
+        hafiza = SinifKararHafizasi()
+        for _ in range(10):
+            sinif, guven = hafiza.guncelle(
+                11,
+                "Kamyon",
+                "Toplu Taşıma",
+                0.78,
+                geometrik_kanit=True,
+            )
+        self.assertEqual(sinif, "Toplu Taşıma")
+        self.assertGreater(guven, 0.50)
+
+    def test_geometri_kaniti_kesilirse_seri_bastan_baslar(self):
+        hafiza = SinifKararHafizasi(geometrik_onay_adedi=3)
+        hafiza.guncelle(12, "Otomobil", "Toplu Taşıma", 0.8, True)
+        hafiza.guncelle(12, "Otomobil", "Otomobil", 0.8, False)
+        hafiza.guncelle(12, "Otomobil", "Toplu Taşıma", 0.8, True)
+        sinif, _guven = hafiza.guncelle(
+            12, "Otomobil", "Toplu Taşıma", 0.8, True
+        )
+        self.assertEqual(sinif, "Otomobil")
 
     def test_gorseldeki_genis_minibus_toplu_tasima_govdesidir(self):
         self.assertTrue(genis_toplu_tasima_govdesi_mi(

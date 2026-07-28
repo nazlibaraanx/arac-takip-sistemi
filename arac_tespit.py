@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from ultralytics import YOLO
 from arac_siniflandirma import (
+    SinifKararHafizasi,
     genis_toplu_tasima_govdesi_mi,
     kararli_sinifi_guncelle,
     otomobil_boyutunda_mi,
@@ -37,8 +38,8 @@ class AracTespit:
         print("YOLO modeli yükleniyor...")
 
         self.model = YOLO(MODEL_YOLU)
-        self.toplu_tasima_idleri = set()
         self.sinif_oylari = defaultdict(lambda: defaultdict(float))
+        self.sinif_karar_hafizasi = SinifKararHafizasi()
         self.sinif_duzeltmeleri = dict(sinif_duzeltmeleri or {})
 
         # YOLO sınıflarını Türkçeye çevir
@@ -66,8 +67,8 @@ class AracTespit:
     def oturumu_sifirla(self):
         """Yeni yükleme için takip ve sınıflandırma geçmişini temizler."""
 
-        self.toplu_tasima_idleri.clear()
         self.sinif_oylari.clear()
+        self.sinif_karar_hafizasi.sifirla()
         predictor = getattr(self.model, "predictor", None)
         for tracker in getattr(predictor, "trackers", []) or []:
             reset = getattr(tracker, "reset", None)
@@ -98,6 +99,8 @@ class AracTespit:
                 sinif_id = int(r.boxes.cls[i])
                 model_sinifi = self.model.names[sinif_id]
                 sinif = self.sinif_haritasi.get(model_sinifi, model_sinifi)
+                model_turkce_sinifi = sinif
+                guven = float(r.boxes.conf[i])
 
                 x1, y1, x2, y2 = map(int, r.boxes.xyxy[i])
                 kutu = (x1, y1, x2, y2)
@@ -145,15 +148,11 @@ class AracTespit:
                     )
                 )
 
-                if servis_adayi or genis_toplu_tasima:
-                    self.toplu_tasima_idleri.add(takip_id)
-
                 if genis_toplu_tasima:
                     sinif = "Toplu Taşıma"
-                elif otomobil_boyutu:
-                    self.toplu_tasima_idleri.discard(takip_id)
+                elif otomobil_boyutu and guven < 0.65:
                     sinif = "Otomobil"
-                elif takip_id in self.toplu_tasima_idleri:
+                elif servis_adayi:
                     sinif = "Toplu Taşıma"
 
                 # Gorsel olarak dogrulanmis takip kimlikleri, modelin gecici
@@ -165,21 +164,27 @@ class AracTespit:
                 if sinif not in ARAC_SINIFLARI and sinif != "Yaya Yolcu":
                     continue
 
-                guven = float(r.boxes.conf[i])
                 if sinif != "Yaya Yolcu":
-                    if takip_id in self.toplu_tasima_idleri:
-                        sinif = "Toplu Taşıma"
+                    elle_duzeltildi = takip_id in self.sinif_duzeltmeleri
+                    if elle_duzeltildi:
+                        karar_guveni = 1.0
                     else:
-                        sinif = self.kararli_sinifi_guncelle(
+                        sinif, karar_guveni = self.sinif_karar_hafizasi.guncelle(
                             takip_id,
+                            model_turkce_sinifi,
                             sinif,
-                            guven
+                            guven,
+                            geometrik_kanit=(sinif != model_turkce_sinifi),
                         )
+                else:
+                    karar_guveni = guven
 
                 arac = {
                     "id": takip_id,
                     "sinif": sinif,
-                    "guven": guven,
+                    "guven": karar_guveni,
+                    "model_guveni": guven,
+                    "model_sinifi": model_turkce_sinifi,
                     "kutu": kutu
                 }
 

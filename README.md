@@ -12,15 +12,33 @@ Projenin 13–27 Temmuz 2026 arasındaki gelişimi için
 
 - Araç ve yaya yolcu için ayrı geçiş ölçümü
 - Yanlış çift sayımı önleyen takip ve yön kontrolü
+- Takip kimliği değişse bile plaka ve anonim görünüm özetiyle seferlik
+  mükerrer araç/yaya koruması
 - Araç türü sınıflandırması ve ücret hesaplama
+- Tek karelik sınıf sıçramalarını reddeden; takip boyunca model güveni ve
+  ardışık geometrik kanıtları birleştiren kararlı araç sınıflandırması
 - Plaka okuma
 - Kalıcı günlük ve aylık veriler
 - `Malatya - Baskil` ve `Baskil - Malatya` için bağımsız kayıtlar
 - Geçiş kayıtları, aylık grafik, tarih aralığı ve günlük detay ekranları
 - Yönetim panelinde canlı günün özeti, son plaka ve aktif sefer yönü
-- Aylık genel raporda iki yönün yan yana özeti ve çift serili günlük grafiği
+- Deniz ulaşımı temalı ana panel, canlı yükleme göstergesi, rota görünümü ve
+  teknik ayarları ayrı tutan Sistem Durumu sekmesi
+- Ayrı yön karşılaştırma ekranında seçilebilir tarih aralığı, sefer sayıları
+  ve çift serili günlük araç/yaya grafiği
+- Günlük detay ekranında araç türlerinin adet ve yüzde dağılımı
 - Aylık Excel raporu
+- Excel rapor merkezinde ayrı ve canlı renkli Araç Grafikleri, Yaya
+  Grafikleri ve iki yön karşılaştırması sayfaları
 - Araç/yaya seçimine uygun PDF grafik raporları
+- Başlangıçta, sefer kapanışında, gün değişiminde ve program kapanışında
+  otomatik SQLite yedeği; son 30 günlük yedek saklama
+- Kamera donması/görüntü kesilmesi ve kritik disk alanı kontrolleri
+- Bütünlük kontrollü, geri yükleme öncesi güvenlik kopyalı yedek kurtarma
+- Yönetici, görevli ve rapor görüntüleyici rolleri için güvenli kullanıcı
+  altyapısı; önemli işlemler için denetim geçmişi
+- Varsayılan 90 günlük plaka saklama ve süresi dolan plakaları maskeleme
+- Görevli ve sistem sayımlarını karşılaştıran saha doğruluk ölçüm altyapısı
 - Manuel tarih aralığı seçimi
 
 ## Gereksinimler

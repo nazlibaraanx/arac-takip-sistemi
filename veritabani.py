@@ -70,6 +70,27 @@ class Veritabani:
         )
         """)
 
+        self.imlec.execute("""
+        CREATE TABLE IF NOT EXISTS kullanicilar(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kullanici_adi TEXT NOT NULL UNIQUE,
+            sifre_ozeti TEXT NOT NULL,
+            tuz TEXT NOT NULL,
+            rol TEXT NOT NULL,
+            aktif INTEGER NOT NULL DEFAULT 1,
+            olusturulma TEXT NOT NULL
+        )
+        """)
+        self.imlec.execute("""
+        CREATE TABLE IF NOT EXISTS denetim_kayitlari(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            zaman TEXT NOT NULL,
+            kullanici TEXT NOT NULL,
+            islem TEXT NOT NULL,
+            ayrinti TEXT
+        )
+        """)
+
         self.imlec.execute("PRAGMA table_info(gecisler)")
         if "sefer_id" not in {satir[1] for satir in self.imlec.fetchall()}:
             self.imlec.execute(
@@ -888,6 +909,42 @@ class Veritabani:
             "arac_turleri": arac_turleri
         }
 
+    def tarih_araligi_yon_karsilastirmasi_getir(self, baslangic, bitis):
+        """Tarih aralığında iki yönün özet, günlük seri ve sefer sayılarını verir."""
+
+        baslangic_metni = baslangic.strftime("%Y%m%d")
+        bitis_metni = bitis.strftime("%Y%m%d")
+        tarih_ifadesi = (
+            "substr(baslangic_tarihi, 7, 4) || "
+            "substr(baslangic_tarihi, 4, 2) || "
+            "substr(baslangic_tarihi, 1, 2)"
+        )
+        sonuc = {}
+        for sefer_yonu in SEFER_YONLERI:
+            ozet = self.tarih_araligi_grafik_ozeti_getir(
+                baslangic, bitis, sefer_yonu
+            )
+            gunlukler = ozet["gunluk_ozetler"]
+            self.imlec.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM seferler
+                WHERE {tarih_ifadesi} BETWEEN ? AND ?
+                  AND sefer_yonu = ?
+                  AND miras = 0
+                """,
+                (baslangic_metni, bitis_metni, sefer_yonu)
+            )
+            sonuc[sefer_yonu] = {
+                "toplam_arac": sum(int(satir[1]) for satir in gunlukler),
+                "toplam_yaya": sum(int(satir[2]) for satir in gunlukler),
+                "toplam_hasilat": sum(float(satir[3]) for satir in gunlukler),
+                "sefer_sayisi": int(self.imlec.fetchone()[0]),
+                "gunluk_ozetler": gunlukler,
+                "arac_turleri": ozet["arac_turleri"],
+            }
+        return sonuc
+
     def yaya_kaydet(
         self, takip_id, sefer_yonu=MALATYA_BASKIL, sefer_id=None
     ):
@@ -1219,3 +1276,53 @@ class Veritabani:
     def baglantiyi_kapat(self):
 
         self.baglanti.close()
+
+    def denetim_kaydi_ekle(self, kullanici, islem, ayrinti=""):
+        self.imlec.execute(
+            """
+            INSERT INTO denetim_kayitlari(zaman, kullanici, islem, ayrinti)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                str(kullanici or "sistem"),
+                str(islem),
+                str(ayrinti or ""),
+            ),
+        )
+        self.baglanti.commit()
+
+    def denetim_kayitlarini_getir(self, limit=200):
+        self.imlec.execute(
+            """
+            SELECT zaman, kullanici, islem, ayrinti
+            FROM denetim_kayitlari
+            ORDER BY id DESC LIMIT ?
+            """,
+            (int(limit),),
+        )
+        return self.imlec.fetchall()
+
+    def eski_plakalari_maskele(self, saklama_gunu=90, simdi=None):
+        """Saklama süresi dolan plaka metinlerini, sayımları bozmadan siler."""
+
+        simdi = simdi or datetime.now()
+        sinir = simdi.date().toordinal() - int(saklama_gunu)
+        self.imlec.execute(
+            "SELECT id, tarih FROM gecisler WHERE plaka != 'SİLİNDİ'"
+        )
+        silinecekler = []
+        for kimlik, tarih in self.imlec.fetchall():
+            try:
+                kayit_tarihi = datetime.strptime(tarih, "%d.%m.%Y").date()
+            except (TypeError, ValueError):
+                continue
+            if kayit_tarihi.toordinal() < sinir:
+                silinecekler.append((kimlik,))
+        if silinecekler:
+            self.imlec.executemany(
+                "UPDATE gecisler SET plaka = 'SİLİNDİ' WHERE id = ?",
+                silinecekler,
+            )
+            self.baglanti.commit()
+        return len(silinecekler)

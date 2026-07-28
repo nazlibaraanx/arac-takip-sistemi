@@ -1,3 +1,63 @@
+from collections import defaultdict, deque
+
+
+class SinifKararHafizasi:
+    """Takip boyunca model ve geometri kanıtlarını dengeli biçimde birleştirir."""
+
+    def __init__(self, pencere=24, geometrik_onay_adedi=3):
+        self.pencere = int(pencere)
+        self.geometrik_onay_adedi = int(geometrik_onay_adedi)
+        self.gozlemler = defaultdict(lambda: deque(maxlen=self.pencere))
+        self.son_geometri = {}
+        self.geometri_serisi = defaultdict(int)
+
+    def sifirla(self):
+        self.gozlemler.clear()
+        self.son_geometri.clear()
+        self.geometri_serisi.clear()
+
+    def guncelle(
+        self,
+        takip_id,
+        model_sinifi,
+        aday_sinif,
+        guven,
+        geometrik_kanit=False,
+    ):
+        guven = max(0.01, min(1.0, float(guven)))
+        model_sinifi = str(model_sinifi)
+        aday_sinif = str(aday_sinif)
+
+        geometri_onayli = False
+        if geometrik_kanit and aday_sinif != model_sinifi:
+            if self.son_geometri.get(takip_id) == aday_sinif:
+                self.geometri_serisi[takip_id] += 1
+            else:
+                self.son_geometri[takip_id] = aday_sinif
+                self.geometri_serisi[takip_id] = 1
+            geometri_onayli = (
+                self.geometri_serisi[takip_id] >= self.geometrik_onay_adedi
+            )
+        else:
+            self.son_geometri.pop(takip_id, None)
+            self.geometri_serisi[takip_id] = 0
+
+        # Tek bir geometrik tahmin sınıfı değiştiremez. Aynı işaret en az üç
+        # kare sürerse model oyuyla birlikte değerlendirilir.
+        if geometri_onayli:
+            self.gozlemler[takip_id].append((model_sinifi, guven * 0.45))
+            self.gozlemler[takip_id].append((aday_sinif, guven * 1.25))
+        else:
+            self.gozlemler[takip_id].append((model_sinifi, guven))
+
+        puanlar = defaultdict(float)
+        for sinif, agirlik in self.gozlemler[takip_id]:
+            puanlar[sinif] += agirlik
+        karar = max(puanlar, key=puanlar.get)
+        toplam = sum(puanlar.values()) or 1.0
+        return karar, puanlar[karar] / toplam
+
+
 def kararli_sinifi_guncelle(sinif_oylari, takip_id, sinif, guven):
     """Karelik sınıf sıçramalarını güven ağırlıklı çoğunlukla süzer."""
 
