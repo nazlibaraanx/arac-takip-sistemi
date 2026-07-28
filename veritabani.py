@@ -14,6 +14,7 @@ class Veritabani:
 
     def __init__(self, veritabani_yolu=VERITABANI_YOLU):
         self.oturum_id = uuid.uuid4().hex
+        self.veritabani_yolu = veritabani_yolu
 
         self.baglanti = sqlite3.connect(
             veritabani_yolu,
@@ -575,6 +576,22 @@ class Veritabani:
         ORDER BY id DESC
         """)
         return self.imlec.fetchall()
+
+    def sefer_plakalarini_getir(self, sefer_id):
+        if sefer_id is None:
+            return []
+        self.imlec.execute(
+            """
+            SELECT DISTINCT plaka
+            FROM gecisler
+            WHERE sefer_id = ?
+              AND plaka IS NOT NULL
+              AND trim(plaka) != ''
+              AND upper(trim(plaka)) != 'OKUNAMADI'
+            """,
+            (int(sefer_id),)
+        )
+        return [satir[0] for satir in self.imlec.fetchall()]
 
             # ==========================
     # TÜM GEÇİŞLERİ GETİR

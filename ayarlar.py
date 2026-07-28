@@ -27,6 +27,10 @@ RAPOR_KLASORU = os.path.join(PROJE_KLASORU, "raporlar")
 
 LOG_KLASORU = os.path.join(PROJE_KLASORU, "loglar")
 
+YEDEK_KLASORU = os.path.join(PROJE_KLASORU, "yedekler")
+
+YEDEK_SAKLAMA_GUNU = 30
+
 
 # ===========================================
 # DOSYA YOLLARI

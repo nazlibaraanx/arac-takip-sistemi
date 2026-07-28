@@ -11,8 +11,10 @@ from arac_tespit import AracTespit
 from excel_aktar import ExcelAktar
 from gecis_kontrol import GecisKontrol
 from kamera_kaynagi import kamera_ayarini_yukle, kamera_kaynagi_aciklamasi
+from otomatik_yedek import OtomatikYedek
 from plaka_okuma import PlakaOkuma
 from sefer_yonu import SEFER_YONLERI, sefer_yonunu_oku
+from tekil_nesne_hafizasi import TekilNesneHafizasi
 from tek_ornek import TekOrnekKilidi
 from ucret_hesapla import UcretHesapla
 from veritabani import Veritabani
@@ -139,6 +141,16 @@ def otomatik_excel_raporunu_guncelle(veritabani):
     return [dosya_yolu]
 
 
+def otomatik_yedekle(veritabani, zorla=False):
+    yedek_yolu = OtomatikYedek.olustur(
+        kaynak_yolu=veritabani.veritabani_yolu,
+        baglanti=veritabani.baglanti,
+        zorla=zorla,
+    )
+    print("Günlük veritabanı yedeği hazır:", yedek_yolu)
+    return yedek_yolu
+
+
 def gecisi_kaydet(
     veritabani,
     plaka_okuyucu,
@@ -146,7 +158,8 @@ def gecisi_kaydet(
     kare,
     arac,
     sefer_yonu,
-    sefer_id
+    sefer_id,
+    tekil_hafiza=None,
 ):
     """
     Aracın plakasını okur, ücretini hesaplar
@@ -182,6 +195,18 @@ def gecisi_kaydet(
         )
         plaka_guveni = float(sonuc.get("guven", 0))
 
+        if (
+            tekil_hafiza is not None
+            and tekil_hafiza.daha_once_sayildi_mi(
+                "arac", kare, kutu, etiket=arac_turu, plaka=plaka
+            )
+        ):
+            print(
+                "Mükerrer araç engellendi:",
+                f"ID={takip_id}, plaka={plaka}, tür={arac_turu}"
+            )
+            return None
+
         ucret = ucret_sistemi.ucret_hesapla(
             arac_turu
         )
@@ -197,6 +222,10 @@ def gecisi_kaydet(
             sefer_yonu,
             sefer_id
         )
+        if tekil_hafiza is not None:
+            tekil_hafiza.kaydet(
+                "arac", kare, kutu, etiket=arac_turu, plaka=plaka
+            )
 
         print("=" * 50)
         print("ARAÇ FERİBOTA GİRDİ")
@@ -256,12 +285,21 @@ def ana_program():
         veritabani = Veritabani()
         print("Geçmiş geçiş kayıtları korunarak yeni oturum başlatıldı.")
         try:
+            yedek_yolu = OtomatikYedek.olustur(
+                kaynak_yolu=veritabani.veritabani_yolu,
+                baglanti=veritabani.baglanti,
+            )
+            print("Günlük veritabanı yedeği hazır:", yedek_yolu)
+        except Exception as hata:
+            print("Otomatik yedekleme hatası:", hata)
+        try:
             otomatik_excel_raporunu_guncelle(veritabani)
         except Exception as hata:
             print("Başlangıç Excel güncelleme hatası:", hata)
         tespit = AracTespit()
         gecis_kontrol = GecisKontrol()
         yaya_takip = YayaTakip(min_gorulme=3)
+        tekil_hafiza = TekilNesneHafizasi()
         plaka_okuyucu = PlakaOkuma()
         ucret_sistemi = UcretHesapla(veritabani)
         video_kontrolleri = VideoKontrolleri()
@@ -303,6 +341,10 @@ def ana_program():
         if yukleme_aktif and aktif_sefer_id is None:
             aktif_sefer_id = veritabani.sefer_baslat(aktif_sefer_yonu)
             yukleme_durumunu_yaz(True, sefer_id=aktif_sefer_id)
+        if yukleme_aktif:
+            tekil_hafiza.plakalari_yukle(
+                veritabani.sefer_plakalarini_getir(aktif_sefer_id)
+            )
 
         print("Sistem hazır.")
         print("Çıkmak için Q tuşuna basın.")
@@ -345,18 +387,27 @@ def ana_program():
                     tespit.oturumu_sifirla()
                     gecis_kontrol = GecisKontrol()
                     yaya_takip = YayaTakip(min_gorulme=3)
+                    tekil_hafiza.sifirla()
+                    tekil_hafiza.plakalari_yukle(
+                        veritabani.sefer_plakalarini_getir(aktif_sefer_id)
+                    )
                     print(
                         "Yükleme başladı; geçiş kaydı aktif. "
                         f"Sefer yönü: {aktif_sefer_yonu}"
                     )
                 else:
                     veritabani.sefer_bitir(onceki_sefer_id)
+                    try:
+                        otomatik_yedekle(veritabani, zorla=True)
+                    except Exception as hata:
+                        print("Sefer kapanışı yedekleme hatası:", hata)
                     print("Yükleme bitti; geçiş kaydı durduruldu.")
 
             bugun = date.today()
             if bugun != son_rapor_gunu:
                 try:
                     otomatik_excel_raporunu_guncelle(veritabani)
+                    otomatik_yedekle(veritabani, zorla=True)
                     son_rapor_gunu = bugun
                 except Exception as hata:
                     print("Gün değişimi Excel güncelleme hatası:", hata)
@@ -377,9 +428,24 @@ def ana_program():
                     yaya_kaydedildi = False
                     for yaya in yeni_yayalar:
                         takip_id = yaya.get("id")
+                        kutu = yaya.get("kutu")
+                        if tekil_hafiza.daha_once_sayildi_mi(
+                            "yaya", kare, kutu, etiket="Yaya Yolcu"
+                        ):
+                            print(
+                                "Mükerrer yaya engellendi:",
+                                f"ID={takip_id}"
+                            )
+                            continue
                         if veritabani.yaya_kaydet(
                             takip_id, aktif_sefer_yonu, aktif_sefer_id
                         ):
+                            tekil_hafiza.kaydet(
+                                "yaya",
+                                kare,
+                                kutu,
+                                etiket="Yaya Yolcu",
+                            )
                             yaya_kaydedildi = True
                             print(f"Yaya yolcu sayildi -> ID {takip_id}")
 
@@ -434,7 +500,8 @@ def ana_program():
                     kare=kare,
                     arac=arac,
                     sefer_yonu=aktif_sefer_yonu,
-                    sefer_id=aktif_sefer_id
+                    sefer_id=aktif_sefer_id,
+                    tekil_hafiza=tekil_hafiza,
                 )
 
                 if kaydedilen_ucret is not None:
@@ -558,6 +625,11 @@ def ana_program():
             kamera.release()
 
         if veritabani is not None:
+            try:
+                otomatik_yedekle(veritabani, zorla=True)
+            except Exception as hata:
+                print("Kapanış yedekleme hatası:", hata)
+
             try:
                 otomatik_excel_raporunu_guncelle(veritabani)
             except Exception as hata:

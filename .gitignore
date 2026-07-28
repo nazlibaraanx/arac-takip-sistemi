@@ -12,6 +12,7 @@ Feribot_Rapor_*.xlsx
 raporlar/*.xlsx
 ciktilar/
 loglar/
+yedekler/
 *.log
 *.lock
 videolar/
