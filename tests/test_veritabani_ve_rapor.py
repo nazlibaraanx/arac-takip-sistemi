@@ -185,6 +185,42 @@ class VeritabaniVeRaporTestleri(unittest.TestCase):
             karsilastirma[BASKIL_MALATYA]["toplam_hasilat"], 800
         )
 
+    def test_tarih_araligi_yon_karsilastirmasi_seferleri_de_sayar(self):
+        malatya_seferi = self.vt.sefer_baslat(MALATYA_BASKIL)
+        baskil_seferi = self.vt.sefer_baslat(BASKIL_MALATYA)
+        self.vt.gecis_kaydet(
+            1, "44AAA111", "Otomobil", 180, 240,
+            sefer_yonu=MALATYA_BASKIL,
+            sefer_id=malatya_seferi,
+        )
+        self.vt.gecis_kaydet(
+            2, "44BBB222", "Kamyon", 260, 800,
+            sefer_yonu=BASKIL_MALATYA,
+            sefer_id=baskil_seferi,
+        )
+        self.vt.sefer_bitir(malatya_seferi)
+        self.vt.sefer_bitir(baskil_seferi)
+        bugun = datetime.now()
+
+        karsilastirma = (
+            self.vt.tarih_araligi_yon_karsilastirmasi_getir(
+                bugun, bugun
+            )
+        )
+
+        self.assertEqual(
+            karsilastirma[MALATYA_BASKIL]["sefer_sayisi"], 1
+        )
+        self.assertEqual(
+            karsilastirma[BASKIL_MALATYA]["sefer_sayisi"], 1
+        )
+        self.assertEqual(
+            karsilastirma[MALATYA_BASKIL]["toplam_arac"], 1
+        )
+        self.assertEqual(
+            karsilastirma[BASKIL_MALATYA]["toplam_arac"], 1
+        )
+
     def test_grafik_ozeti_secili_tarih_araligina_gore_filtrelenir(self):
         self.vt.gecis_kaydet(1, "A", "Otomobil", 180, 240)
         bugun = datetime.now()
@@ -429,8 +465,9 @@ class VeritabaniVeRaporTestleri(unittest.TestCase):
                 "Rapor Merkezi",
                 "Aylık Genel",
                 "Yön Bazlı",
-                "Sefer Bazlı",
-                "Grafikler",
+                "Araç Grafikleri",
+                "Yaya Grafikleri",
+                "Yön Karşılaştırma",
             ],
         )
         sayfa = calisma_kitabi["Rapor Merkezi"]
@@ -463,10 +500,44 @@ class VeritabaniVeRaporTestleri(unittest.TestCase):
             [genel.cell(6, sutun).value for sutun in range(1, 5)],
             ["Temmuz 2026", 9, 3, 2160.0],
         )
-        sefer = calisma_kitabi["Sefer Bazlı"]
-        self.assertEqual(sefer["A5"].value, "SF-20260724-001")
-        self.assertEqual(sefer["H5"].value, 5)
-        self.assertEqual(len(calisma_kitabi["Grafikler"]._charts), 2)
+        self.assertEqual(calisma_kitabi.active.title, "Araç Grafikleri")
+        self.assertEqual(len(calisma_kitabi["Araç Grafikleri"]._charts), 2)
+        self.assertEqual(len(calisma_kitabi["Yaya Grafikleri"]._charts), 2)
+        self.assertEqual(
+            len(calisma_kitabi["Yön Karşılaştırma"]._charts), 3
+        )
+        beklenen_renkler = (
+            ("087EA4", "19B56B"),
+            ("35B8D4", "F4C542"),
+            ("7B2CBF", "F07A32"),
+        )
+        for grafik, (ilk_renk, ikinci_renk) in zip(
+            calisma_kitabi["Yön Karşılaştırma"]._charts,
+            beklenen_renkler,
+        ):
+            noktalar = grafik.series[0].dPt
+            self.assertEqual(
+                noktalar[0].graphicalProperties.solidFill.srgbClr,
+                ilk_renk,
+            )
+            self.assertEqual(
+                noktalar[1].graphicalProperties.solidFill.srgbClr,
+                ikinci_renk,
+            )
+        arac_serileri = calisma_kitabi["Araç Grafikleri"]._charts[0].series
+        yaya_serileri = calisma_kitabi["Yaya Grafikleri"]._charts[0].series
+        self.assertNotEqual(
+            arac_serileri[0].graphicalProperties.solidFill,
+            yaya_serileri[0].graphicalProperties.solidFill,
+        )
+        self.assertEqual(
+            calisma_kitabi["Araç Grafikleri"]["B5"].value,
+            5,
+        )
+        self.assertEqual(
+            calisma_kitabi["Yaya Grafikleri"]["B5"].value,
+            1,
+        )
         calisma_kitabi.close()
 
     def test_gecis_kaydi_kalici_gunluk_toplami_artirir(self):

@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.marker import DataPoint
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
@@ -550,31 +551,19 @@ class ExcelAktar:
             )
         cls._rapor_satirlarini_yaz(yon_ws, yon_satirlari)
 
-        sefer_ws = wb.create_sheet("Sefer Bazlı")
-        cls._standart_rapor_sayfasi(
-            sefer_ws,
-            "SEFER BAZLI RAPOR",
-            "Her Yüklemeyi Başlat–Bitir aralığı ayrı sefer olarak saklanır",
-            (
-                "Sefer No", "Sefer Yönü", "Başlangıç Tarihi",
-                "Başlangıç", "Bitiş Tarihi", "Bitiş", "Durum",
-                "Araç", "Yaya", "Hasılat (TL)",
-            ),
+        arac_grafik_ws = wb.create_sheet("Araç Grafikleri")
+        cls._gunluk_yon_grafik_sayfasi(
+            arac_grafik_ws, satirlar, veri_turu="arac"
         )
-        sefer_satirlari = [
-            (
-                satir[1], satir[2], satir[3], satir[4],
-                satir[5] or "", satir[6] or "", satir[7],
-                satir[8], satir[9], satir[10],
-            )
-            for satir in (sefer_ozetleri or [])
-        ]
-        cls._rapor_satirlarini_yaz(sefer_ws, sefer_satirlari)
-
-        grafik_ws = wb.create_sheet("Grafikler")
-        cls._grafik_sayfasini_hazirla(
-            grafik_ws, genel_satirlar, yon_satirlari
+        yaya_grafik_ws = wb.create_sheet("Yaya Grafikleri")
+        cls._gunluk_yon_grafik_sayfasi(
+            yaya_grafik_ws, satirlar, veri_turu="yaya"
         )
+        karsilastirma_ws = wb.create_sheet("Yön Karşılaştırma")
+        cls._yon_karsilastirma_sayfasi(
+            karsilastirma_ws, yon_satirlari
+        )
+        wb.active = wb.sheetnames.index("Araç Grafikleri")
 
         try:
             wb.save(gecici_dosya)
@@ -723,6 +712,195 @@ class ExcelAktar:
 
         for sutun in ("A", "B", "C", "E", "F", "G"):
             ws.column_dimensions[sutun].width = 20
+
+    @classmethod
+    def _gunluk_yon_grafik_sayfasi(cls, ws, satirlar, veri_turu):
+        yaya = veri_turu == "yaya"
+        veri_adi = "YAYA YOLCU" if yaya else "ARAÇ"
+        ws.sheet_view.showGridLines = False
+        ws.merge_cells("A1:H1")
+        ws["A1"] = f"GÜNLÜK {veri_adi} GRAFİKLERİ"
+        ws["A1"].fill = PatternFill("solid", fgColor="16324F")
+        ws["A1"].font = Font(
+            name="Aptos Display", color="FFFFFF", bold=True, size=17
+        )
+        ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[1].height = 36
+        ws.merge_cells("A2:H2")
+        ws["A2"] = (
+            "Her gün için Malatya–Baskil ve Baskil–Malatya ayrı "
+            f"{'yaya yolcu' if yaya else 'araç'} serileriyle gösterilir."
+        )
+        ws["A2"].font = Font(name="Aptos", color="64748B", size=10)
+
+        gunler = defaultdict(lambda: {
+            MALATYA_BASKIL: 0,
+            BASKIL_MALATYA: 0,
+        })
+        for yon, _donem, tarih, arac, yaya_sayisi, _hasilat in satirlar:
+            gunler[tarih][yon] += int(yaya_sayisi if yaya else arac)
+
+        basliklar = (
+            "Tarih", MALATYA_BASKIL, BASKIL_MALATYA, "İki Yön Toplamı"
+        )
+        for sutun, baslik in enumerate(basliklar, start=1):
+            hucre = ws.cell(4, sutun, baslik)
+            hucre.fill = PatternFill("solid", fgColor="2F6F77")
+            hucre.font = Font(color="FFFFFF", bold=True)
+            hucre.alignment = Alignment(horizontal="center")
+
+        for sira, tarih in enumerate(sorted(gunler), start=5):
+            malatya = gunler[tarih][MALATYA_BASKIL]
+            baskil = gunler[tarih][BASKIL_MALATYA]
+            ws.cell(sira, 1, tarih).number_format = "dd.mm.yyyy"
+            ws.cell(sira, 2, malatya)
+            ws.cell(sira, 3, baskil)
+            ws.cell(sira, 4, malatya + baskil)
+
+        son_satir = max(5, 4 + len(gunler))
+        grafik = BarChart()
+        grafik.type = "col"
+        # Excel'in tek renkli hazır stili, iki yön için verdiğimiz renkleri
+        # ezebiliyor. Seri renklerini doğrudan sabitlemek için tema stili yok.
+        grafik.style = None
+        grafik.varyColors = False
+        grafik.title = f"Günlük {veri_adi.title()} – İki Yön"
+        grafik.y_axis.title = "Yaya Yolcu" if yaya else "Araç Adedi"
+        grafik.x_axis.title = "Tarih"
+        grafik.add_data(
+            Reference(ws, min_col=2, max_col=3, min_row=4, max_row=son_satir),
+            titles_from_data=True,
+        )
+        grafik.set_categories(
+            Reference(ws, min_col=1, min_row=5, max_row=son_satir)
+        )
+        if len(grafik.series) >= 2:
+            renkler = (
+                ("087EA4", "19B56B")
+                if not yaya
+                else ("8B3FD6", "F06A35")
+            )
+            grafik.series[0].graphicalProperties.solidFill = renkler[0]
+            grafik.series[0].graphicalProperties.line.solidFill = renkler[0]
+            grafik.series[1].graphicalProperties.solidFill = renkler[1]
+            grafik.series[1].graphicalProperties.line.solidFill = renkler[1]
+        grafik.height = 10
+        grafik.width = 22
+        ws.add_chart(grafik, "F4")
+
+        toplam_grafigi = LineChart()
+        toplam_grafigi.title = f"Günlük Toplam {veri_adi.title()}"
+        toplam_grafigi.y_axis.title = "Yaya Yolcu" if yaya else "Araç Adedi"
+        toplam_grafigi.x_axis.title = "Tarih"
+        # Bu grafikte yalnızca tek toplam serisi vardır. Excel bazı
+        # sürümlerde tarihleri açıklama kutusunda seri gibi gösterebildiği
+        # için gereksiz lejantı kapatıp tarihleri yalnız alt eksende tutarız.
+        toplam_grafigi.legend = None
+        toplam_grafigi.add_data(
+            Reference(ws, min_col=4, min_row=4, max_row=son_satir),
+            titles_from_data=True,
+        )
+        toplam_grafigi.set_categories(
+            Reference(ws, min_col=1, min_row=5, max_row=son_satir)
+        )
+        toplam_renk = "00A7B5" if not yaya else "D9368B"
+        toplam_grafigi.series[0].graphicalProperties.line.solidFill = toplam_renk
+        toplam_grafigi.series[0].graphicalProperties.line.width = 32000
+        toplam_grafigi.series[0].marker.symbol = "circle"
+        toplam_grafigi.series[0].marker.size = 7
+        toplam_grafigi.height = 9
+        toplam_grafigi.width = 22
+        ws.add_chart(toplam_grafigi, "F24")
+
+        ws.column_dimensions["A"].width = 16
+        for sutun in ("B", "C", "D"):
+            ws.column_dimensions[sutun].width = 22
+        ws.freeze_panes = "A5"
+        ws.auto_filter.ref = f"A4:D{son_satir}"
+
+    @classmethod
+    def _yon_karsilastirma_sayfasi(cls, ws, yon_satirlari):
+        ws.sheet_view.showGridLines = False
+        ws.merge_cells("A1:J1")
+        ws["A1"] = "MALATYA–BASKIL / BASKIL–MALATYA KARŞILAŞTIRMASI"
+        ws["A1"].fill = PatternFill("solid", fgColor="16324F")
+        ws["A1"].font = Font(
+            name="Aptos Display", color="FFFFFF", bold=True, size=17
+        )
+        ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[1].height = 36
+        ws.merge_cells("A2:J2")
+        ws["A2"] = (
+            "Araç, yaya yolcu ve hasılat karşılaştırmaları birbirinden "
+            "ayrı grafiklerde gösterilir."
+        )
+        ws["A2"].font = Font(name="Aptos", color="64748B", size=10)
+
+        basliklar = (
+            "Dönem", "Sefer Yönü", "Araç", "Yaya Yolcu", "Hasılat (TL)"
+        )
+        for sutun, baslik in enumerate(basliklar, start=1):
+            hucre = ws.cell(4, sutun, baslik)
+            hucre.fill = PatternFill("solid", fgColor="2F6F77")
+            hucre.font = Font(color="FFFFFF", bold=True)
+        sirali = sorted(yon_satirlari, key=lambda satir: (satir[1], satir[0]))
+        for sira, (yon, donem, arac, yaya, hasilat) in enumerate(
+            sirali, start=5
+        ):
+            ws.cell(sira, 1, donem)
+            ws.cell(sira, 2, yon)
+            ws.cell(sira, 3, arac)
+            ws.cell(sira, 4, yaya)
+            ws.cell(sira, 5, hasilat).number_format = '#,##0.00 "TL"'
+
+        yon_toplamlari = defaultdict(lambda: [0, 0, 0.0])
+        for yon, _donem, arac, yaya, hasilat in yon_satirlari:
+            yon_toplamlari[yon][0] += int(arac)
+            yon_toplamlari[yon][1] += int(yaya)
+            yon_toplamlari[yon][2] += float(hasilat)
+        for sutun, baslik in enumerate(
+            ("Sefer Yönü", "Araç", "Yaya", "Hasılat"), start=7
+        ):
+            hucre = ws.cell(4, sutun, baslik)
+            hucre.fill = PatternFill("solid", fgColor="2F6F77")
+            hucre.font = Font(color="FFFFFF", bold=True)
+        for sira, yon in enumerate((MALATYA_BASKIL, BASKIL_MALATYA), start=5):
+            ws.cell(sira, 7, yon)
+            ws.cell(sira, 8, yon_toplamlari[yon][0])
+            ws.cell(sira, 9, yon_toplamlari[yon][1])
+            ws.cell(sira, 10, yon_toplamlari[yon][2])
+
+        for baslik, sutun, konum, malatya_rengi, baskil_rengi in (
+            ("Yönlere Göre Araç", 8, "G9", "087EA4", "19B56B"),
+            ("Yönlere Göre Yaya Yolcu", 9, "G25", "35B8D4", "F4C542"),
+            ("Yönlere Göre Hasılat", 10, "G41", "7B2CBF", "F07A32"),
+        ):
+            grafik = BarChart()
+            grafik.title = baslik
+            grafik.y_axis.title = "Adet" if sutun < 10 else "TL"
+            grafik.style = None
+            grafik.varyColors = True
+            grafik.add_data(
+                Reference(ws, min_col=sutun, min_row=4, max_row=6),
+                titles_from_data=True,
+            )
+            grafik.set_categories(
+                Reference(ws, min_col=7, min_row=5, max_row=6)
+            )
+            malatya_noktasi = DataPoint(idx=0)
+            malatya_noktasi.graphicalProperties.solidFill = malatya_rengi
+            malatya_noktasi.graphicalProperties.line.solidFill = malatya_rengi
+            baskil_noktasi = DataPoint(idx=1)
+            baskil_noktasi.graphicalProperties.solidFill = baskil_rengi
+            baskil_noktasi.graphicalProperties.line.solidFill = baskil_rengi
+            grafik.series[0].dPt = [malatya_noktasi, baskil_noktasi]
+            grafik.height = 8
+            grafik.width = 14
+            ws.add_chart(grafik, konum)
+
+        for sutun in ("A", "B", "C", "D", "E", "G", "H", "I", "J"):
+            ws.column_dimensions[sutun].width = 22
+        ws.freeze_panes = "A5"
 
     @classmethod
     def eski_aylik_raporlari_temizle(cls, hedef_klasor=RAPOR_KLASORU):

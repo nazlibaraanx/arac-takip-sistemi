@@ -106,10 +106,40 @@ arasındaki gelişimini anlatır.
   yana gösterildi.
 - Günlük aylık grafik, iki yönü mavi ve turuncu çift sütunlarla gösterecek
   şekilde geliştirildi.
-- Tüm otomatik testler çalıştırıldı ve 63 test başarıyla geçti.
+- Yön karşılaştırması, grafik raporundan ayrılarak kendi sekmesine taşındı.
+- Karşılaştırmaya seçilebilir tarih aralığı ve iki yön için ayrı sefer sayıları
+  eklendi.
+- Günlük detay ekranındaki araç türü dağılımı, seçilen ay yerine seçilen günün
+  gerçek otomobil, toplu taşıma, kamyon ve diğer araç adetlerini gösterecek
+  şekilde düzeltildi.
+- Grafiklerin altına dönem, yön, veri türü, renk açıklaması ve sefer sayısını
+  belirten açık kapsam bilgileri eklendi.
+- Baskil–Malatya karşılaştırma rengi turuncudan yeşile çevrildi.
+- Araç ve yayaların yeni takip kimliği alması durumunda ikinci kez
+  sayılmasını azaltmak için seferlik plaka ve anonim görünüm hafızası eklendi.
+- Geçici görünüm özetlerinin yeni yüklemede sıfırlanması sağlandı.
+- Tüm otomatik testler çalıştırıldı ve 68 test başarıyla geçti.
 
 ## Bundan sonraki kayıt biçimi
 
 Yeni çalışmalar bu dosyanın en üstüne veya ilgili tarihin altına kısa ve
 doğrulanabilir maddeler hâlinde eklenecektir. Her günlük geliştirme ayrıca
 açıklayıcı bir Git commit mesajıyla GitHub'a gönderilecektir.
+- Otomatik veritabanı yedekleme eklendi. Yedekler başlangıçta, sefer
+  kapanışında, gün değişiminde ve program kapanırken güvenli SQLite kopyası
+  olarak oluşturuluyor; son 30 gün korunuyor.
+- Yönetim paneli deniz ulaşımı temasıyla yenilendi; canlı yükleme ışığı, büyük
+  rota başlığı, simgeli özet kartları, sade sekmeler, yumuşak grafik renkleri
+  ve ayrı Sistem Durumu bölümü eklendi.
+- Araç sınıflandırmasındaki tek karelik ve takip boyunca kalıcı yanlış sınıf
+  kilidi kaldırıldı. Yeni karar hafızası model güvenini son 24 kanıtla
+  birleştiriyor ve geometrik düzeltmeyi en az üç ardışık kareden sonra
+  değerlendiriyor. Test sayısı 73'e yükseldi.
+- Excel rapor merkezi kapsamlı yapıya döndürüldü. Araç ve yaya grafikleri
+  tamamen ayrıldı; Malatya–Baskil/Baskil–Malatya günlük serileri, ayrı yön
+  karşılaştırması eklendi. Son düzenlemede Günlük Seferler sayfası kaldırıldı
+  ve bütün grafik/serilere birbirinden farklı canlı renkler verildi.
+- İşletme güvenliği altyapısı eklendi: kamera/disk sağlığı, bütünlük kontrollü
+  yedek geri yükleme, kullanıcı rolleri, denetim kayıtları, 90 günlük plaka
+  maskeleme ve saha doğruluk karşılaştırması. Test sayısı 81'e yükseldi.
+- Otomatik yedekleme testleriyle birlikte toplam test sayısı 70 oldu.

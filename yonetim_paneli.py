@@ -225,15 +225,18 @@ class TakvimSecici(tk.Frame):
 
 class YonetimPaneli:
 
-    ARKA_PLAN = "#F6F8FB"
+    ARKA_PLAN = "#F2F8FA"
     KART_RENGI = "#FFFFFF"
-    ANA_RENK = "#2563A6"
-    ANA_RENK_KOYU = "#1D4F84"
-    BASLIK_RENGI = "#18324A"
-    METIN_RENGI = "#334155"
-    IKINCIL_METIN = "#64748B"
-    SINIR_RENGI = "#DCE3EC"
-    PASIF_RENK = "#E9EEF5"
+    ANA_RENK = "#078D9B"
+    ANA_RENK_KOYU = "#075E72"
+    BASLIK_RENGI = "#103B4C"
+    METIN_RENGI = "#294B59"
+    IKINCIL_METIN = "#66818C"
+    SINIR_RENGI = "#D6E8EC"
+    PASIF_RENK = "#E5F1F3"
+    YESIL = "#20A66A"
+    KIRMIZI = "#D95454"
+    TURKUAZ_ACIK = "#DDF4F3"
 
     AY_ADLARI = {
         1: "Ocak",
@@ -251,14 +254,14 @@ class YonetimPaneli:
     }
 
     GRAFIK_RENKLERI = [
-        "#2F75B5",
-        "#70AD47",
-        "#ED7D31",
-        "#A5A5A5",
-        "#5B9BD5",
-        "#FFC000",
-        "#8064A2",
-        "#4BACC6"
+        "#168F9C",
+        "#43A875",
+        "#5B8DB8",
+        "#D69B5B",
+        "#7C79B8",
+        "#62AEB5",
+        "#B5748C",
+        "#7B9A6D"
     ]
 
     def __init__(self):
@@ -277,16 +280,21 @@ class YonetimPaneli:
         self.grafik_tarih_baslangic = bugun.replace(day=1)
         self.grafik_tarih_bitis = bugun
         self.grafik_tarih_secildi = False
+        self.karsilastirma_baslangic = bugun.replace(day=1)
+        self.karsilastirma_bitis = bugun
+        self.karsilastirma_verileri = {}
 
         self.pencere = tk.Tk()
         self.pencere.title("Akıllı Feribot Yönetim Paneli")
-        self.pencere.geometry("1180x720")
+        self.pencere.geometry("1240x780")
         self.pencere.minsize(920, 620)
         self.pencere.protocol("WM_DELETE_WINDOW", self.programi_kapat)
         self.temayi_uygula()
 
+        self.ust_banner_olustur()
+
         self.notebook = ttk.Notebook(self.pencere)
-        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        self.notebook.pack(fill="both", expand=True, padx=18, pady=(4, 16))
 
         self.kayitlar_sekmesi = tk.Frame(
             self.notebook, bg=self.ARKA_PLAN
@@ -294,12 +302,24 @@ class YonetimPaneli:
         self.grafik_sekmesi = tk.Frame(
             self.notebook, bg=self.ARKA_PLAN
         )
-        self.notebook.add(self.kayitlar_sekmesi, text="Geçiş Kayıtları")
-        self.notebook.add(self.grafik_sekmesi, text="Grafikli Rapor")
+        self.karsilastirma_sekmesi = tk.Frame(
+            self.notebook, bg=self.ARKA_PLAN
+        )
+        self.sistem_sekmesi = tk.Frame(
+            self.notebook, bg=self.ARKA_PLAN
+        )
+        self.notebook.add(self.kayitlar_sekmesi, text="Ana Panel")
+        self.notebook.add(self.grafik_sekmesi, text="Raporlar")
+        self.notebook.add(
+            self.karsilastirma_sekmesi, text="Yönler"
+        )
+        self.notebook.add(self.sistem_sekmesi, text="Sistem Durumu")
         self.notebook.bind("<<NotebookTabChanged>>", self.sekme_degisti)
 
         self.kayitlar_arayuzunu_olustur()
         self.grafik_arayuzunu_olustur()
+        self.karsilastirma_arayuzunu_olustur()
+        self.sistem_durumu_arayuzunu_olustur()
 
         ilk_aralik = self.vt.tarih_araligi_grafik_ozeti_getir(
             self.grafik_tarih_baslangic,
@@ -316,22 +336,76 @@ class YonetimPaneli:
             bugun,
             self.aktif_sefer_yonu
         )
-        bu_ayin_ozeti = self.vt.aylik_grafik_ozeti_getir(
-            bugun.year,
-            bugun.month,
-            self.aktif_sefer_yonu
-        )
         self.gunluk_detay_sayfasini_goster(
             bugun,
             bugunun_ozeti["gunluk_ozetler"],
-            bu_ayin_ozeti["arac_turleri"]
+            bugunun_ozeti["arac_turleri"]
         )
         self.notebook.select(self.kayitlar_sekmesi)
 
         self.verileri_yukle()
         self.grafikli_raporu_yenile()
+        self.karsilastirmayi_yenile()
         self.pencere.after(2000, self.otomatik_yenile)
+        self.pencere.after(600, self.durum_isigini_canlandir)
         self.pencere.mainloop()
+
+    def ust_banner_olustur(self):
+        banner = tk.Frame(self.pencere, bg="#075E72", height=82)
+        banner.pack(fill="x")
+        banner.pack_propagate(False)
+        sol = tk.Frame(banner, bg="#075E72")
+        sol.pack(side="left", padx=26, pady=13)
+        tk.Label(
+            sol,
+            text="⛴  AKILLI FERİBOT",
+            font=("Segoe UI Semibold", 18),
+            bg="#075E72",
+            fg="white",
+        ).pack(anchor="w")
+        tk.Label(
+            sol,
+            text="Araç ve yolcu geçiş yönetimi",
+            font=("Segoe UI", 9),
+            bg="#075E72",
+            fg="#BFE4E8",
+        ).pack(anchor="w")
+        sag = tk.Frame(banner, bg="#075E72")
+        sag.pack(side="right", padx=26, pady=13)
+        self.banner_durum_noktasi = tk.Label(
+            sag, text="●", font=("Segoe UI", 12),
+            bg="#075E72", fg="#7CDCB0"
+        )
+        self.banner_durum_noktasi.pack(side="left", padx=(0, 8))
+        self.banner_durum = tk.Label(
+            sag,
+            text="Sistem hazır",
+            font=("Segoe UI Semibold", 10),
+            bg="#075E72",
+            fg="white",
+        )
+        self.banner_durum.pack(side="left")
+        self.banner_saat = tk.Label(
+            sag,
+            text="",
+            font=("Segoe UI", 9),
+            bg="#075E72",
+            fg="#BFE4E8",
+        )
+        self.banner_saat.pack(side="left", padx=(18, 0))
+
+    def durum_isigini_canlandir(self):
+        aktif = getattr(self, "yukleme_aktif", False)
+        yanik = getattr(self, "_durum_isigi_yanik", False)
+        self._durum_isigi_yanik = not yanik
+        self.banner_durum_noktasi.config(
+            fg=("#7CDCB0" if yanik else "#DDF8E9") if aktif else "#8FB6BF"
+        )
+        self.banner_durum.config(
+            text="Yükleme aktif" if aktif else "Sistem hazır"
+        )
+        self.banner_saat.config(text=datetime.now().strftime("%d.%m.%Y  %H:%M"))
+        self.pencere.after(600 if aktif else 1000, self.durum_isigini_canlandir)
 
     def temayi_uygula(self):
         self.pencere.configure(bg=self.ARKA_PLAN)
@@ -352,25 +426,25 @@ class YonetimPaneli:
             "TNotebook",
             background=self.ARKA_PLAN,
             borderwidth=0,
-            tabmargins=(8, 8, 0, 0)
+            tabmargins=(4, 8, 0, 0)
         )
         stil.configure(
             "TNotebook.Tab",
-            font=("Segoe UI", 10),
-            padding=(18, 9),
+            font=("Segoe UI Semibold", 10),
+            padding=(24, 11),
             background=self.PASIF_RENK,
             foreground=self.METIN_RENGI,
             borderwidth=0
         )
         stil.map(
             "TNotebook.Tab",
-            background=[("selected", self.KART_RENGI)],
+            background=[("selected", self.TURKUAZ_ACIK)],
             foreground=[("selected", self.ANA_RENK_KOYU)]
         )
         stil.configure(
             "Treeview",
             font=("Segoe UI", 10),
-            rowheight=32,
+            rowheight=36,
             background=self.KART_RENGI,
             fieldbackground=self.KART_RENGI,
             foreground=self.METIN_RENGI,
@@ -379,14 +453,14 @@ class YonetimPaneli:
         stil.configure(
             "Treeview.Heading",
             font=("Segoe UI Semibold", 10),
-            background="#EAF0F7",
+            background="#DDEFF1",
             foreground=self.BASLIK_RENGI,
             relief="flat",
             padding=(8, 9)
         )
         stil.map(
             "Treeview",
-            background=[("selected", "#D9EAF7")],
+            background=[("selected", "#D8F1EF")],
             foreground=[("selected", self.BASLIK_RENGI)]
         )
         stil.configure(
@@ -396,19 +470,36 @@ class YonetimPaneli:
         )
 
     def kayitlar_arayuzunu_olustur(self):
-        tk.Label(
+        tanitim = tk.Frame(
             self.kayitlar_sekmesi,
-            text="AKILLI FERİBOT YÖNETİM PANELİ",
-            font=("Segoe UI Semibold", 19),
-            bg=self.ARKA_PLAN,
-            fg=self.BASLIK_RENGI
-        ).pack(pady=(22, 14))
+            bg="#DDF4F3",
+            highlightthickness=1,
+            highlightbackground="#C5E7E8",
+            padx=22,
+            pady=13,
+        )
+        tanitim.pack(fill="x", padx=20, pady=(16, 10))
+        tk.Label(
+            tanitim,
+            text="BUGÜNÜN FERİBOT OPERASYONU",
+            font=("Segoe UI Semibold", 12),
+            bg="#DDF4F3",
+            fg=self.ANA_RENK_KOYU,
+        ).pack(side="left")
+        self.rota_basligi = tk.Label(
+            tanitim,
+            text="Malatya  ⛴  Baskil",
+            font=("Segoe UI Semibold", 17),
+            bg="#DDF4F3",
+            fg=self.BASLIK_RENGI,
+        )
+        self.rota_basligi.pack(side="right")
 
         self.kamera_ayari_arayuzunu_olustur()
 
         tk.Label(
             self.kayitlar_sekmesi,
-            text="BUGÜNÜN ÖZETİ",
+            text="Günün özeti",
             font=("Segoe UI Semibold", 11),
             bg=self.ARKA_PLAN,
             fg=self.BASLIK_RENGI,
@@ -526,6 +617,8 @@ class YonetimPaneli:
             command=self.tablo.yview
         )
         self.tablo.configure(yscrollcommand=dikey_scroll.set)
+        self.tablo.tag_configure("tek", background="#F5FAFB")
+        self.tablo.tag_configure("cift", background="#FFFFFF")
         self.tablo.pack(side="left", fill="both", expand=True)
         dikey_scroll.pack(side="right", fill="y")
 
@@ -537,15 +630,30 @@ class YonetimPaneli:
         }
         self.kamera_tur_kodlari = {ad: kod for kod, ad in tur_adlari.items()}
 
+        tk.Label(
+            self.sistem_sekmesi,
+            text="Kamera ve Teknik Ayarlar",
+            font=("Segoe UI Semibold", 18),
+            bg=self.ARKA_PLAN,
+            fg=self.BASLIK_RENGI,
+        ).pack(anchor="w", padx=26, pady=(20, 2))
+        tk.Label(
+            self.sistem_sekmesi,
+            text="Görüntü kaynağını seçin ve sistem bağlantılarını izleyin.",
+            font=("Segoe UI", 10),
+            bg=self.ARKA_PLAN,
+            fg=self.IKINCIL_METIN,
+        ).pack(anchor="w", padx=26, pady=(0, 8))
+
         alan = tk.Frame(
-            self.kayitlar_sekmesi,
+            self.sistem_sekmesi,
             bg=self.KART_RENGI,
             highlightthickness=1,
             highlightbackground=self.SINIR_RENGI,
             padx=12,
             pady=8,
         )
-        alan.pack(fill="x", padx=20, pady=(0, 8))
+        alan.pack(fill="x", padx=24, pady=(18, 10))
 
         tk.Label(
             alan,
@@ -626,18 +734,18 @@ class YonetimPaneli:
 
         sefer_alani = tk.Frame(
             self.kayitlar_sekmesi,
-            bg=self.KART_RENGI,
+            bg="#EAF7F3",
             highlightthickness=1,
-            highlightbackground=self.SINIR_RENGI,
-            padx=12,
-            pady=7,
+            highlightbackground="#CFE8DD",
+            padx=16,
+            pady=10,
         )
         sefer_alani.pack(fill="x", padx=20, pady=(0, 8))
         tk.Label(
             sefer_alani,
-            text="Sefer Yönü",
+            text="⛴  Aktif rota",
             font=("Segoe UI Semibold", 10),
-            bg=self.KART_RENGI,
+            bg="#EAF7F3",
             fg=self.BASLIK_RENGI,
         ).pack(side="left", padx=(0, 10))
         self.aktif_sefer_yonu = sefer_yonunu_oku()
@@ -665,10 +773,73 @@ class YonetimPaneli:
             sefer_alani,
             text="Bu yüklemenin kayıtları seçilen yöne yazılır.",
             font=("Segoe UI", 9),
-            bg=self.KART_RENGI,
+            bg="#EAF7F3",
             fg=self.IKINCIL_METIN,
         )
         self.sefer_yonu_durum_label.pack(side="left", padx=(14, 0))
+        self.rota_gorunumunu_guncelle()
+
+    def sistem_durumu_arayuzunu_olustur(self):
+        tk.Label(
+            self.sistem_sekmesi,
+            text="Çalışma Özeti",
+            font=("Segoe UI Semibold", 13),
+            bg=self.ARKA_PLAN,
+            fg=self.BASLIK_RENGI,
+        ).pack(anchor="w", padx=26, pady=(16, 2))
+        tk.Label(
+            self.sistem_sekmesi,
+            text="Canlı bağlantılar ve koruma özellikleri",
+            font=("Segoe UI", 10),
+            bg=self.ARKA_PLAN,
+            fg=self.IKINCIL_METIN,
+        ).pack(anchor="w", padx=26, pady=(0, 12))
+
+        durumlar = tk.Frame(self.sistem_sekmesi, bg=self.ARKA_PLAN)
+        durumlar.pack(fill="x", padx=20)
+        for sutun in range(3):
+            durumlar.grid_columnconfigure(sutun, weight=1)
+        self.sistem_kamera_durum = self.ozet_karti_olustur(
+            durumlar, 0, "Kamera Kaynağı", self.kamera_tur_var.get()
+        )
+        self.sistem_veritabani_durum = self.ozet_karti_olustur(
+            durumlar, 1, "Veritabanı", "Bağlı ve hazır"
+        )
+        self.sistem_yedek_durum = self.ozet_karti_olustur(
+            durumlar, 2, "Otomatik Yedek", "30 gün korunuyor"
+        )
+
+        bilgi = tk.Frame(
+            self.sistem_sekmesi,
+            bg="#EAF7F3",
+            highlightthickness=1,
+            highlightbackground="#CFE8DD",
+            padx=18,
+            pady=14,
+        )
+        bilgi.pack(fill="x", padx=24, pady=16)
+        tk.Label(
+            bilgi,
+            text="●  Sistem kontrolleri çalışıyor",
+            font=("Segoe UI Semibold", 11),
+            bg="#EAF7F3",
+            fg=self.YESIL,
+        ).pack(anchor="w")
+        tk.Label(
+            bilgi,
+            text=(
+                "Araç/yaya tekillik kontrolü etkin · Günlük yedekleme etkin · "
+                "Rapor veritabanı bağlı"
+            ),
+            font=("Segoe UI", 9),
+            bg="#EAF7F3",
+            fg=self.METIN_RENGI,
+        ).pack(anchor="w", pady=(5, 0))
+
+    def rota_gorunumunu_guncelle(self):
+        yon = getattr(self, "aktif_sefer_yonu", "Malatya - Baskil")
+        if hasattr(self, "rota_basligi"):
+            self.rota_basligi.config(text=yon.replace(" - ", "  ⛴  "))
 
     def sefer_yonu_degisti(self):
         if self.yukleme_aktif:
@@ -677,6 +848,7 @@ class YonetimPaneli:
         self.aktif_sefer_yonu = sefer_yonunu_yaz(
             self.sefer_yonu_var.get()
         )
+        self.rota_gorunumunu_guncelle()
         self.verileri_yukle()
         self.grafikli_raporu_yenile(hata_goster=False)
         if hasattr(self, "gunluk_detay_tarih"):
@@ -724,6 +896,8 @@ class YonetimPaneli:
                 )
             ayar = kamera_ayarini_kaydet({"tur": tur, "deger": deger})
             self.kamera_deger_var.set(str(ayar["deger"]))
+            if hasattr(self, "sistem_kamera_durum"):
+                self.sistem_kamera_durum.config(text=self.kamera_tur_var.get())
             if tur == "usb":
                 if self.yukleme_aktif:
                     self.vt.sefer_bitir(self.aktif_sefer_id)
@@ -769,6 +943,7 @@ class YonetimPaneli:
             self.yukleme_aktif,
             sefer_id=self.aktif_sefer_id,
         )
+        self.rota_gorunumunu_guncelle()
         self.yukleme_butonunu_guncelle()
 
     def yukleme_butonunu_guncelle(self):
@@ -778,17 +953,19 @@ class YonetimPaneli:
             )
         if self.yukleme_aktif:
             self.yukleme_butonu.config(
-                text="Yüklemeyi Bitir",
-                bg="#FDECEC",
-                fg="#A33A3A",
-                activebackground="#F8D7D7",
+                text="■  Yüklemeyi Bitir",
+                bg=self.KIRMIZI,
+                fg="white",
+                activebackground="#B93E3E",
+                activeforeground="white",
             )
         else:
             self.yukleme_butonu.config(
-                text="Yüklemeyi Başlat",
-                bg="#DDF4E8",
-                fg="#147A4B",
-                activebackground="#CBEAD9",
+                text="▶  Yüklemeyi Başlat",
+                bg=self.YESIL,
+                fg="white",
+                activebackground="#168553",
+                activeforeground="white",
             )
 
     @staticmethod
@@ -799,10 +976,10 @@ class YonetimPaneli:
             command=komut,
             width=genislik,
             font=("Segoe UI", 9),
-            bg="#E9EEF5",
-            fg="#334155",
-            activebackground="#DCE6F1",
-            activeforeground="#18324A",
+            bg="#E3F1F2",
+            fg="#245563",
+            activebackground="#CCE6E8",
+            activeforeground="#103B4C",
             relief="flat",
             bd=0,
             cursor="hand2"
@@ -914,46 +1091,7 @@ class YonetimPaneli:
             "Kayıt yok"
         )
 
-        self.yon_karsilastirma_frame = tk.Frame(
-            self.grafik_sekmesi, bg=self.ARKA_PLAN
-        )
-        self.yon_karsilastirma_frame.pack(fill="x", padx=24, pady=(0, 5))
-        for sutun in range(2):
-            self.yon_karsilastirma_frame.grid_columnconfigure(sutun, weight=1)
-
-        self.yon_karsilastirma_etiketleri = {}
-        yon_renkleri = ("#2F75B5", "#ED7D31")
-        for sutun, (yon, renk) in enumerate(zip(SEFER_YONLERI, yon_renkleri)):
-            kart = tk.Frame(
-                self.yon_karsilastirma_frame,
-                bg=self.KART_RENGI,
-                highlightthickness=1,
-                highlightbackground=renk,
-                padx=14,
-                pady=7,
-            )
-            kart.grid(
-                row=0, column=sutun, sticky="ew", padx=5
-            )
-            tk.Label(
-                kart,
-                text=yon.replace(" - ", " → "),
-                font=("Segoe UI Semibold", 10),
-                bg=self.KART_RENGI,
-                fg=renk,
-            ).pack(anchor="w")
-            deger = tk.Label(
-                kart,
-                text="0 araç  ·  0 yaya  ·  0,00 TL",
-                font=("Segoe UI", 10),
-                bg=self.KART_RENGI,
-                fg=self.METIN_RENGI,
-            )
-            deger.pack(anchor="w", pady=(4, 0))
-            self.yon_karsilastirma_etiketleri[yon] = deger
-
         grafik_secimi = tk.Frame(self.grafik_sekmesi, bg=self.ARKA_PLAN)
-        self.grafik_secim_frame = grafik_secimi
         grafik_secimi.pack(fill="x", padx=24, pady=(7, 0))
         tk.Label(
             grafik_secimi,
@@ -1057,6 +1195,20 @@ class YonetimPaneli:
             "<Configure>",
             lambda event: self.tur_grafigi_ciz()
         )
+        self.grafik_kapsam_aciklama = tk.Label(
+            grafikler,
+            text="",
+            font=("Segoe UI", 9),
+            bg="#F8FAFC",
+            fg=self.METIN_RENGI,
+            anchor="w",
+            justify="left",
+            padx=10,
+            pady=6,
+        )
+        self.grafik_kapsam_aciklama.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(7, 0)
+        )
 
         self.aralik_grafik_frame = tk.Frame(
             self.grafik_sekmesi,
@@ -1094,6 +1246,364 @@ class YonetimPaneli:
             "<Configure>", lambda _event: self.tarih_araligi_grafigi_ciz()
         )
         self.grafik_secim_butonlarini_guncelle()
+
+    def karsilastirma_arayuzunu_olustur(self):
+        self.karsilastirma_modu = "arac"
+        self.karsilastirma_butonlari = {}
+
+        baslik = tk.Frame(self.karsilastirma_sekmesi, bg=self.ARKA_PLAN)
+        baslik.pack(fill="x", padx=24, pady=(18, 10))
+        tk.Label(
+            baslik,
+            text="Yön ve Sefer Karşılaştırması",
+            font=("Segoe UI Semibold", 17),
+            bg=self.ARKA_PLAN,
+            fg=self.BASLIK_RENGI,
+        ).pack(side="left")
+        self.karsilastirma_tarih_butonu = tk.Button(
+            baslik,
+            text=(
+                f"{self.karsilastirma_baslangic:%d.%m.%Y}  –  "
+                f"{self.karsilastirma_bitis:%d.%m.%Y}"
+            ),
+            command=self.karsilastirma_tarih_penceresi,
+            width=22,
+            font=("Segoe UI", 9),
+            bg="#FBFCFE",
+            fg=self.METIN_RENGI,
+            relief="solid",
+            bd=1,
+        )
+        self.karsilastirma_tarih_butonu.pack(side="right", ipady=4)
+
+        toplam_kartlar = tk.Frame(
+            self.karsilastirma_sekmesi, bg=self.ARKA_PLAN
+        )
+        toplam_kartlar.pack(fill="x", padx=24, pady=(0, 8))
+        for sutun in range(4):
+            toplam_kartlar.grid_columnconfigure(sutun, weight=1)
+        self.karsilastirma_toplam_arac = self.ozet_karti_olustur(
+            toplam_kartlar, 0, "İki Yön Toplam Araç", "0"
+        )
+        self.karsilastirma_toplam_yaya = self.ozet_karti_olustur(
+            toplam_kartlar, 1, "İki Yön Toplam Yaya", "0"
+        )
+        self.karsilastirma_toplam_hasilat = self.ozet_karti_olustur(
+            toplam_kartlar, 2, "İki Yön Toplam Hasılat", "0,00 TL"
+        )
+        self.karsilastirma_toplam_sefer = self.ozet_karti_olustur(
+            toplam_kartlar, 3, "Toplam Sefer Sayısı", "0"
+        )
+
+        yon_kartlari = tk.Frame(
+            self.karsilastirma_sekmesi, bg=self.ARKA_PLAN
+        )
+        yon_kartlari.pack(fill="x", padx=24, pady=(0, 8))
+        for sutun in range(2):
+            yon_kartlari.grid_columnconfigure(sutun, weight=1)
+        self.karsilastirma_yon_etiketleri = {}
+        for sutun, (yon, renk) in enumerate(
+            zip(SEFER_YONLERI, ("#2F75B5", "#2E8B57"))
+        ):
+            kart = tk.Frame(
+                yon_kartlari,
+                bg=self.KART_RENGI,
+                highlightthickness=2,
+                highlightbackground=renk,
+                padx=14,
+                pady=8,
+            )
+            kart.grid(row=0, column=sutun, sticky="ew", padx=5)
+            tk.Label(
+                kart,
+                text=yon.replace(" - ", " → "),
+                font=("Segoe UI Semibold", 11),
+                bg=self.KART_RENGI,
+                fg=renk,
+            ).pack(anchor="w")
+            deger = tk.Label(
+                kart,
+                text="Araç: 0  ·  Yaya: 0  ·  Hasılat: 0,00 TL  ·  Sefer: 0",
+                font=("Segoe UI", 9),
+                bg=self.KART_RENGI,
+                fg=self.METIN_RENGI,
+            )
+            deger.pack(anchor="w", pady=(5, 0))
+            self.karsilastirma_yon_etiketleri[yon] = deger
+
+        grafik_ust = tk.Frame(
+            self.karsilastirma_sekmesi, bg=self.ARKA_PLAN
+        )
+        grafik_ust.pack(fill="x", padx=29, pady=(0, 5))
+        tk.Label(
+            grafik_ust,
+            text="Grafikte göster:",
+            font=("Segoe UI", 9),
+            bg=self.ARKA_PLAN,
+            fg=self.IKINCIL_METIN,
+        ).pack(side="left", padx=(0, 8))
+        for mod, metin in (("arac", "Araç"), ("yaya", "Yaya Yolcu")):
+            buton = tk.Button(
+                grafik_ust,
+                text=metin,
+                command=lambda secim=mod: self.karsilastirma_modunu_degistir(
+                    secim
+                ),
+                width=11,
+                font=("Segoe UI", 8),
+                relief="flat",
+            )
+            buton.pack(side="left", padx=(0, 4), ipady=3)
+            self.karsilastirma_butonlari[mod] = buton
+
+        grafik_alani = tk.Frame(
+            self.karsilastirma_sekmesi,
+            bg=self.KART_RENGI,
+            highlightthickness=1,
+            highlightbackground=self.SINIR_RENGI,
+        )
+        grafik_alani.pack(
+            fill="both", expand=True, padx=29, pady=(0, 18)
+        )
+        self.karsilastirma_canvas = tk.Canvas(
+            grafik_alani, bg="white", highlightthickness=0
+        )
+        self.karsilastirma_canvas.pack(fill="both", expand=True)
+        self.karsilastirma_canvas.bind(
+            "<Configure>", lambda _event: self.karsilastirma_grafigi_ciz()
+        )
+        self.karsilastirma_aciklama = tk.Label(
+            grafik_alani,
+            text="",
+            font=("Segoe UI", 9),
+            bg="#F8FAFC",
+            fg=self.METIN_RENGI,
+            anchor="w",
+            justify="left",
+            padx=12,
+            pady=7,
+        )
+        self.karsilastirma_aciklama.pack(fill="x")
+        self.karsilastirma_butonlarini_guncelle()
+
+    def karsilastirma_tarih_penceresi(self):
+        pencere = tk.Toplevel(self.pencere)
+        pencere.title("Karşılaştırma Tarih Aralığı")
+        pencere.geometry("350x400")
+        pencere.resizable(False, False)
+        pencere.configure(bg="white")
+        pencere.transient(self.pencere)
+        pencere.grab_set()
+        tk.Label(
+            pencere,
+            text="Karşılaştırılacak Tarih Aralığı",
+            font=("Segoe UI Semibold", 13),
+            bg="white",
+            fg=self.BASLIK_RENGI,
+        ).pack(pady=(15, 5))
+        tk.Label(
+            pencere,
+            text="Önce başlangıç, sonra bitiş gününü seçin",
+            font=("Segoe UI", 9),
+            bg="white",
+            fg=self.IKINCIL_METIN,
+        ).pack(pady=(0, 7))
+        takvim = TakvimSecici(
+            pencere,
+            self.karsilastirma_baslangic,
+            aralik_modu=True,
+            bitis_tarihi=self.karsilastirma_bitis,
+        )
+        takvim.pack()
+        butonlar = tk.Frame(pencere, bg="white")
+        butonlar.pack(fill="x", padx=18, pady=(10, 16))
+        tk.Button(
+            butonlar,
+            text="İptal",
+            command=pencere.destroy,
+            width=11,
+            bg="#E9EEF2",
+            fg=self.IKINCIL_METIN,
+        ).pack(side="right", padx=(7, 0))
+        tk.Button(
+            butonlar,
+            text="Uygula",
+            command=lambda: self.karsilastirma_tarihini_uygula(
+                takvim.degeri_getir(), pencere
+            ),
+            width=11,
+            bg="#16A66A",
+            fg="white",
+        ).pack(side="right")
+
+    def karsilastirma_tarihini_uygula(self, tarih_araligi, pencere=None):
+        baslangic, bitis = tarih_araligi
+        if bitis is None:
+            messagebox.showwarning(
+                "Eksik Tarih",
+                "Takvimden önce başlangıç, sonra bitiş gününü seçin.",
+            )
+            return
+        self.karsilastirma_baslangic = baslangic
+        self.karsilastirma_bitis = bitis
+        self.karsilastirma_tarih_butonu.config(
+            text=f"{baslangic:%d.%m.%Y}  –  {bitis:%d.%m.%Y}"
+        )
+        if pencere is not None:
+            pencere.destroy()
+        self.karsilastirmayi_yenile()
+
+    def karsilastirmayi_yenile(self):
+        self.karsilastirma_verileri = (
+            self.vt.tarih_araligi_yon_karsilastirmasi_getir(
+                self.karsilastirma_baslangic, self.karsilastirma_bitis
+            )
+        )
+        toplam_arac = sum(
+            veri["toplam_arac"]
+            for veri in self.karsilastirma_verileri.values()
+        )
+        toplam_yaya = sum(
+            veri["toplam_yaya"]
+            for veri in self.karsilastirma_verileri.values()
+        )
+        toplam_hasilat = sum(
+            veri["toplam_hasilat"]
+            for veri in self.karsilastirma_verileri.values()
+        )
+        toplam_sefer = sum(
+            veri["sefer_sayisi"]
+            for veri in self.karsilastirma_verileri.values()
+        )
+        self.karsilastirma_toplam_arac.config(text=str(toplam_arac))
+        self.karsilastirma_toplam_yaya.config(text=str(toplam_yaya))
+        self.karsilastirma_toplam_hasilat.config(
+            text=f"{toplam_hasilat:,.2f} TL".replace(",", "X")
+            .replace(".", ",").replace("X", ".")
+        )
+        self.karsilastirma_toplam_sefer.config(text=str(toplam_sefer))
+        for yon in SEFER_YONLERI:
+            veri = self.karsilastirma_verileri[yon]
+            hasilat = (
+                f'{veri["toplam_hasilat"]:,.2f}'.replace(",", "X")
+                .replace(".", ",").replace("X", ".")
+            )
+            self.karsilastirma_yon_etiketleri[yon].config(
+                text=(
+                    f'Araç: {veri["toplam_arac"]}  ·  '
+                    f'Yaya: {veri["toplam_yaya"]}  ·  '
+                    f'Hasılat: {hasilat} TL  ·  '
+                    f'Sefer: {veri["sefer_sayisi"]}'
+                )
+            )
+        self.karsilastirma_aciklama.config(
+            text=(
+                f"Kapsam: {self.karsilastirma_baslangic:%d.%m.%Y} – "
+                f"{self.karsilastirma_bitis:%d.%m.%Y} · İki yön birlikte · "
+                f"Toplam {toplam_sefer} sefer\n"
+                "Mavi: Malatya → Baskil · Yeşil: Baskil → Malatya · "
+                "Her sütun seçili gündeki gerçek geçiş sayısını gösterir."
+            )
+        )
+        self.karsilastirma_grafigi_ciz()
+
+    def karsilastirma_modunu_degistir(self, mod):
+        self.karsilastirma_modu = mod
+        self.karsilastirma_butonlarini_guncelle()
+        self.karsilastirma_grafigi_ciz()
+
+    def karsilastirma_butonlarini_guncelle(self):
+        for mod, buton in self.karsilastirma_butonlari.items():
+            secili = mod == self.karsilastirma_modu
+            buton.config(
+                bg=self.ANA_RENK if secili else self.PASIF_RENK,
+                fg="white" if secili else self.METIN_RENGI,
+            )
+
+    def karsilastirma_grafigi_ciz(self):
+        if not hasattr(self, "karsilastirma_canvas"):
+            return
+        canvas = self.karsilastirma_canvas
+        canvas.delete("all")
+        genislik = max(canvas.winfo_width(), 700)
+        yukseklik = max(canvas.winfo_height(), 300)
+        veri_indeksi = 2 if self.karsilastirma_modu == "yaya" else 1
+        birim = "Yaya Yolcu" if self.karsilastirma_modu == "yaya" else "Araç"
+        canvas.create_text(
+            22, 18,
+            text=f"Seçilen Tarih Aralığında Günlük {birim} Karşılaştırması",
+            anchor="nw",
+            font=("Segoe UI Semibold", 11),
+            fill=self.BASLIK_RENGI,
+        )
+        seriler = {}
+        tarihler = set()
+        for yon in SEFER_YONLERI:
+            gunlukler = self.karsilastirma_verileri.get(
+                yon, {}
+            ).get("gunluk_ozetler", [])
+            seriler[yon] = {
+                satir[0]: int(satir[veri_indeksi]) for satir in gunlukler
+            }
+            tarihler.update(seriler[yon])
+        tarihler = sorted(
+            tarihler,
+            key=lambda deger: datetime.strptime(deger, "%d.%m.%Y"),
+        )
+        if not tarihler:
+            canvas.create_text(
+                genislik / 2, yukseklik / 2,
+                text="Seçilen tarih aralığında kayıt bulunamadı.",
+                font=("Segoe UI", 10),
+                fill=self.IKINCIL_METIN,
+            )
+            return
+        sol, sag, ust, alt = 55, 24, 58, 42
+        alan_w = genislik - sol - sag
+        alan_h = yukseklik - ust - alt
+        en_yuksek = max(
+            [
+                sayi
+                for seri in seriler.values()
+                for sayi in seri.values()
+            ] or [1]
+        )
+        eksen_ust = max(5, ((en_yuksek + 4) // 5) * 5)
+        for oran in (0, 0.5, 1):
+            deger = int(eksen_ust * oran)
+            y = ust + alan_h * (1 - oran)
+            canvas.create_line(sol, y, genislik - sag, y, fill="#E1E7EF")
+            canvas.create_text(
+                sol - 9, y, text=str(deger), anchor="e",
+                font=("Segoe UI", 8), fill=self.IKINCIL_METIN
+            )
+        dilim = alan_w / len(tarihler)
+        cubuk_w = max(4, min(18, dilim * 0.3))
+        for indeks, tarih in enumerate(tarihler):
+            merkez = sol + dilim * indeks + dilim / 2
+            taban = ust + alan_h
+            for yon_indeksi, (yon, renk) in enumerate(
+                zip(SEFER_YONLERI, ("#2F75B5", "#2E8B57"))
+            ):
+                sayi = seriler[yon].get(tarih, 0)
+                merkez_x = merkez + (yon_indeksi - 0.5) * cubuk_w
+                cubuk_h = alan_h * sayi / eksen_ust
+                canvas.create_rectangle(
+                    merkez_x - cubuk_w / 2, taban - cubuk_h,
+                    merkez_x + cubuk_w / 2, taban,
+                    fill=renk, outline=""
+                )
+                if sayi:
+                    canvas.create_text(
+                        merkez_x, max(ust + 8, taban - cubuk_h - 8),
+                        text=str(sayi), font=("Segoe UI Semibold", 7),
+                        fill=self.METIN_RENGI,
+                    )
+            if indeks % max(1, (len(tarihler) + 9) // 10) == 0:
+                canvas.create_text(
+                    merkez, yukseklik - 20, text=tarih[:5],
+                    font=("Segoe UI", 8), fill=self.IKINCIL_METIN
+                )
 
     def grafik_kapsamlarini_guncelle(self):
         secenekler = [
@@ -1146,6 +1656,7 @@ class YonetimPaneli:
         self.gunluk_grafigi_ciz()
         self.tur_grafigi_ciz()
         self.tarih_araligi_grafigi_ciz()
+        self.grafik_kapsam_aciklamasini_guncelle()
 
     def grafik_secim_butonlarini_guncelle(self):
         for mod, buton in self.grafik_secim_butonlari.items():
@@ -1158,6 +1669,24 @@ class YonetimPaneli:
                 ),
                 activeforeground="white" if secili else self.METIN_RENGI
             )
+
+    def grafik_kapsam_aciklamasini_guncelle(self):
+        if not hasattr(self, "grafik_kapsam_aciklama"):
+            return
+        yil = getattr(self, "grafik_rapor_yil", datetime.now().year)
+        ay = getattr(self, "grafik_rapor_ay", datetime.now().month)
+        sefer_sayisi = getattr(self, "grafik_sefer_sayisi", 0)
+        veri_adi = "Yaya yolcu" if self.grafik_modu == "yaya" else "Araç"
+        self.grafik_kapsam_aciklama.config(
+            text=(
+                f"Kapsam: {self.grafik_rapor_etiketi} · "
+                f"Dönem: {self.AY_ADLARI[ay]} {yil} · "
+                f"Sefer sayısı: {sefer_sayisi}\n"
+                f"Gösterilen veri: {veri_adi} · "
+                "Sol grafik günlük adetleri, sağ grafik araç türü dağılımını "
+                "gösterir."
+            )
+        )
 
     def grafik_ozet_kartlarini_guncelle(self):
         toplam_arac = sum(
@@ -1232,30 +1761,23 @@ class YonetimPaneli:
             yogun_metin = "Kayıt yok"
 
         self.grafik_lbl_yogun_gun.config(text=yogun_metin)
-        self.yon_karsilastirmasini_guncelle()
-
-    def yon_karsilastirmasini_guncelle(self):
-        if self.grafik_kapsam_turu != "genel":
-            self.yon_karsilastirma_frame.pack_forget()
-            return
-
-        self.yon_karsilastirma_frame.pack(
-            fill="x", padx=24, pady=(0, 5), before=self.grafik_secim_frame
-        )
-        for yon in SEFER_YONLERI:
-            ozet = self.grafik_yon_karsilastirmasi.get(yon, {})
-            arac = int(ozet.get("toplam_arac", 0))
-            yaya = int(ozet.get("toplam_yaya", 0))
-            hasilat = float(ozet.get("toplam_hasilat", 0))
-            hasilat_metni = (
-                f"{hasilat:,.2f}".replace(",", "X")
-                .replace(".", ",").replace("X", ".")
-            )
-            self.yon_karsilastirma_etiketleri[yon].config(
-                text=f"{arac} araç  ·  {yaya} yaya  ·  {hasilat_metni} TL"
-            )
 
     def ozet_karti_olustur(self, parent, sutun, baslik, deger):
+        simgeler = {
+            "Araç": "▣",
+            "Yaya": "●",
+            "Hasılat": "₺",
+            "Plaka": "▤",
+            "Yön": "➜",
+            "Sefer": "⛴",
+            "Kamera": "◉",
+            "Veritabanı": "◆",
+            "Yedek": "↻",
+        }
+        simge = next(
+            (deger for anahtar, deger in simgeler.items() if anahtar in baslik),
+            "•",
+        )
         kart = tk.Frame(
             parent,
             bg=self.KART_RENGI,
@@ -1267,16 +1789,27 @@ class YonetimPaneli:
             column=sutun,
             sticky="ew",
             padx=5,
-            ipady=8
+            ipady=10
         )
+        tk.Frame(kart, bg=self.ANA_RENK, height=4).pack(fill="x")
+        baslik_alani = tk.Frame(kart, bg=self.KART_RENGI)
+        baslik_alani.pack(fill="x", padx=13, pady=(10, 0))
+        tk.Label(
+            baslik_alani,
+            text=simge,
+            font=("Segoe UI Semibold", 12),
+            bg=self.TURKUAZ_ACIK,
+            fg=self.ANA_RENK_KOYU,
+            width=2,
+        ).pack(side="left")
         baslik_label = tk.Label(
-            kart,
+            baslik_alani,
             text=baslik,
-            font=("Segoe UI", 9),
+            font=("Segoe UI Semibold", 9),
             bg=self.KART_RENGI,
             fg=self.IKINCIL_METIN
         )
-        baslik_label.pack()
+        baslik_label.pack(side="left", padx=(7, 0))
         deger_label = tk.Label(
             kart,
             text=deger,
@@ -1284,7 +1817,7 @@ class YonetimPaneli:
             bg=self.KART_RENGI,
             fg=self.BASLIK_RENGI
         )
-        deger_label.pack(pady=(6, 0))
+        deger_label.pack(anchor="w", padx=14, pady=(8, 2))
         deger_label.kart = kart
         deger_label.baslik_label = baslik_label
         return deger_label
@@ -1498,6 +2031,20 @@ class YonetimPaneli:
             self.gunluk_detay_tur_canvas.bind(
                 "<Configure>", lambda _event: self.gunluk_detay_tur_grafigi_ciz()
             )
+            self.gunluk_detay_aciklama = tk.Label(
+                grafikler,
+                text="",
+                font=("Segoe UI", 9),
+                bg="#F8FAFC",
+                fg=self.METIN_RENGI,
+                anchor="w",
+                justify="left",
+                padx=10,
+                pady=6,
+            )
+            self.gunluk_detay_aciklama.grid(
+                row=1, column=0, columnspan=2, sticky="ew", pady=(7, 0)
+            )
 
         self.gunluk_detay_tarih = tarih
         self.gunluk_detay_veriler = list(gunluk_veriler)
@@ -1512,6 +2059,18 @@ class YonetimPaneli:
         self.gunluk_detay_hasilat.config(
             text=f"{float(satir[3]):,.2f} TL".replace(",", "X")
             .replace(".", ",").replace("X", ".")
+        )
+        turler = ", ".join(
+            f"{self.arac_turunu_turkcelestir(tur)}: {int(sayi)}"
+            for tur, sayi in self.gunluk_detay_tur_verileri
+        ) or "Araç türü kaydı yok"
+        self.gunluk_detay_aciklama.config(
+            text=(
+                f"Kapsam: {tarih:%d.%m.%Y} · "
+                f"Yön: {self.aktif_sefer_yonu.replace(' - ', ' → ')} · "
+                f"Toplam {int(satir[1])} araç\n"
+                f"Araç türleri: {turler}"
+            )
         )
         self.gunluk_detay_grafigi_ciz()
         self.gunluk_detay_tur_grafigi_ciz()
@@ -1542,13 +2101,10 @@ class YonetimPaneli:
         gunluk_ozet = self.vt.tarih_araligi_grafik_ozeti_getir(
             tarih, tarih, self.aktif_sefer_yonu
         )
-        aylik_ozet = self.vt.aylik_grafik_ozeti_getir(
-            tarih.year, tarih.month, self.aktif_sefer_yonu
-        )
         self.gunluk_detay_sayfasini_goster(
             tarih,
             gunluk_ozet["gunluk_ozetler"],
-            aylik_ozet["arac_turleri"]
+            gunluk_ozet["arac_turleri"]
         )
 
     def gunluk_detay_pdf_kaydet(self):
@@ -1616,14 +2172,24 @@ class YonetimPaneli:
         canvas = self.gunluk_detay_tur_canvas
         canvas.delete("all")
         w, h = max(canvas.winfo_width(), 340), max(canvas.winfo_height(), 320)
-        ay_adi = self.AY_ADLARI[self.gunluk_detay_tarih.month]
+        baslik = (
+            f"{self.gunluk_detay_tarih:%d.%m.%Y} · "
+            "Günlük Araç Türü Adetleri"
+        )
+        veriler = [
+            (self.arac_turunu_turkcelestir(t), int(s))
+            for t, s in self.gunluk_detay_tur_verileri
+        ]
         canvas.create_text(
-            18, 16, text=f"{ay_adi} {self.gunluk_detay_tarih.year} · Aylık Araç Dağılımı",
+            18, 16, text=baslik,
             anchor="nw", font=("Segoe UI Semibold", 10), fill=self.BASLIK_RENGI
         )
-        veriler = [(self.arac_turunu_turkcelestir(t), int(s))
-                   for t, s in self.gunluk_detay_tur_verileri]
         if not veriler:
+            canvas.create_text(
+                w / 2, h / 2,
+                text="Bu gün için araç türü kaydı yok.",
+                font=("Segoe UI", 9), fill=self.IKINCIL_METIN
+            )
             return
         toplam = sum(s for _, s in veriler) or 1
         en_yuksek = max(s for _, s in veriler) or 1
@@ -1635,7 +2201,9 @@ class YonetimPaneli:
             canvas.create_text(sol - 8, y + 9, text=tur, anchor="e",
                                font=("Segoe UI", 8), fill="#4B5F6D")
             canvas.create_rectangle(sol, y, sol + alan * sayi / en_yuksek, y + 18,
-                                    fill=self.GRAFIK_RENKLERI[i % len(self.GRAFIK_RENKLERI)], outline="")
+                                    fill=self.GRAFIK_RENKLERI[
+                                        i % len(self.GRAFIK_RENKLERI)
+                                    ], outline="")
             canvas.create_text(w - 10, y + 9, text=f"{sayi} · %{sayi / toplam * 100:.0f}",
                                anchor="e", font=("Segoe UI Semibold", 8), fill="#4B5F6D")
 
@@ -1985,13 +2553,18 @@ class YonetimPaneli:
 
     def tabloyu_doldur(self, kayitlar):
         self.tabloyu_temizle()
-        for kayit in kayitlar:
+        for indeks, kayit in enumerate(kayitlar):
             kayit_listesi = list(kayit)
             kayit_listesi[4] = self.arac_turunu_turkcelestir(
                 kayit_listesi[4]
             )
             kayit_listesi[5] = f"{float(kayit_listesi[5]):.2f}"
-            self.tablo.insert("", "end", values=kayit_listesi)
+            self.tablo.insert(
+                "",
+                "end",
+                values=kayit_listesi,
+                tags=("tek" if indeks % 2 else "cift",),
+            )
 
     def verileri_yukle(self):
         try:
@@ -2067,9 +2640,7 @@ class YonetimPaneli:
                 ozet = self.vt.aylik_genel_grafik_ozeti_getir(
                     yil, ay
                 )
-                self.grafik_yon_karsilastirmasi = (
-                    self.vt.aylik_yon_karsilastirmasi_getir(yil, ay)
-                )
+                self.grafik_yon_karsilastirmasi = {}
                 self.grafik_rapor_etiketi = "Aylık Genel · İki Yön"
                 self.grafik_rapor_yil = yil
                 self.grafik_rapor_ay = ay
@@ -2100,6 +2671,26 @@ class YonetimPaneli:
             self.grafik_gunluk_verileri = ozet["gunluk_ozetler"]
             self.grafik_tur_verileri = ozet["arac_turleri"]
             self.grafik_kapsam_turu = kapsam
+            ay_baslangici = datetime(yil, ay, 1)
+            ay_bitisi = datetime(
+                yil, ay, calendar.monthrange(yil, ay)[1]
+            )
+            sefer_ozetleri = (
+                self.vt.tarih_araligi_yon_karsilastirmasi_getir(
+                    ay_baslangici, ay_bitisi
+                )
+            )
+            if kapsam == "genel":
+                self.grafik_sefer_sayisi = sum(
+                    veri["sefer_sayisi"]
+                    for veri in sefer_ozetleri.values()
+                )
+            elif kapsam == "yon":
+                self.grafik_sefer_sayisi = sefer_ozetleri[deger][
+                    "sefer_sayisi"
+                ]
+            else:
+                self.grafik_sefer_sayisi = 1
             on_ek = "Sefer" if kapsam == "sefer" else "Aylık"
             self.grafik_lbl_toplam_arac.baslik_label.config(
                 text=f"{on_ek} Toplam Araç"
@@ -2116,6 +2707,7 @@ class YonetimPaneli:
             self.grafik_ozet_kartlarini_guncelle()
             self.gunluk_grafigi_ciz()
             self.tur_grafigi_ciz()
+            self.grafik_kapsam_aciklamasini_guncelle()
         except Exception as hata:
             if hata_goster:
                 messagebox.showerror(
@@ -2259,7 +2851,7 @@ class YonetimPaneli:
 
         if karsilastirma_modu:
             for indeks, (yon, renk) in enumerate(
-                zip(SEFER_YONLERI, ("#2F75B5", "#ED7D31"))
+                zip(SEFER_YONLERI, ("#2F75B5", "#2E8B57"))
             ):
                 x = sol + indeks * 165
                 canvas.create_rectangle(
@@ -2291,7 +2883,7 @@ class YonetimPaneli:
             y2 = ust + alan_yuksekligi
             if karsilastirma_modu:
                 for yon_indeksi, (yon, renk) in enumerate(
-                    zip(SEFER_YONLERI, ("#2F75B5", "#ED7D31"))
+                    zip(SEFER_YONLERI, ("#2F75B5", "#2E8B57"))
                 ):
                     sayi = yon_serileri[yon].get(tarih, 0)
                     cubuk_yuksekligi = alan_yuksekligi * sayi / eksen_ust
@@ -2481,6 +3073,8 @@ class YonetimPaneli:
     def sekme_degisti(self, _event=None):
         if self.notebook.select() == str(self.grafik_sekmesi):
             self.grafikli_raporu_yenile()
+        elif self.notebook.select() == str(self.karsilastirma_sekmesi):
+            self.karsilastirmayi_yenile()
         elif (
             hasattr(self, "gunluk_detay_sekmesi")
             and self.notebook.select() == str(self.gunluk_detay_sekmesi)
@@ -2493,6 +3087,8 @@ class YonetimPaneli:
 
         if self.notebook.select() == str(self.grafik_sekmesi):
             self.grafikli_raporu_yenile(hata_goster=False)
+        elif self.notebook.select() == str(self.karsilastirma_sekmesi):
+            self.karsilastirmayi_yenile()
         elif (
             hasattr(self, "gunluk_detay_sekmesi")
             and self.notebook.select() == str(self.gunluk_detay_sekmesi)

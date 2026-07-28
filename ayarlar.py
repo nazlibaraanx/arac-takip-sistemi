@@ -31,6 +31,8 @@ YEDEK_KLASORU = os.path.join(PROJE_KLASORU, "yedekler")
 
 YEDEK_SAKLAMA_GUNU = 30
 
+PLAKA_SAKLAMA_GUNU = 90
+
 
 # ===========================================
 # DOSYA YOLLARI
